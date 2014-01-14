@@ -38,6 +38,11 @@ import java.util.concurrent.TimeUnit;
  * Abstract base class for {@link EventExecutor}'s that execute all its submitted tasks in a single thread.
  *
  */
+
+/**
+ * //TODO:核心的单线程task执行引擎---一定要好好理解
+ * 其本质实际就是把一个Thread+task进行封装
+ */
 public abstract class SingleThreadEventExecutor extends AbstractEventExecutor {
 
     private static final InternalLogger logger =
@@ -82,6 +87,12 @@ public abstract class SingleThreadEventExecutor extends AbstractEventExecutor {
      * @param addTaskWakesUp    {@code true} if and only if invocation of {@link #addTask(Runnable)} will wake up the
      *                          executor thread
      */
+    /**
+     * //TODO:构造函数要好好理解
+     * @param parent
+     * @param threadFactory
+     * @param addTaskWakesUp
+     */
     protected SingleThreadEventExecutor(
             EventExecutorGroup parent, ThreadFactory threadFactory, boolean addTaskWakesUp) {
 
@@ -92,12 +103,14 @@ public abstract class SingleThreadEventExecutor extends AbstractEventExecutor {
         this.parent = parent;
         this.addTaskWakesUp = addTaskWakesUp;
 
+
         thread = threadFactory.newThread(new Runnable() {
             @Override
             public void run() {
                 boolean success = false;
                 updateLastExecutionTime();
                 try {
+                    //执行任务
                     SingleThreadEventExecutor.this.run();
                     success = true;
                 } catch (Throwable t) {

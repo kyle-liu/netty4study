@@ -27,6 +27,13 @@ import java.util.concurrent.TimeUnit;
  * to shut them down in a global fashion.
  *
  */
+
+/**
+ * TODO:核心的EventExecutorGroup接口，
+ * 1.该接口继承于JAVA并发包中的ScheduledExecutorService，看起来像一个task执行器
+ * 2.该接口又继承于Iterable<EventExecutor> 接口，说明该接口的实现类，可以是一个容器，允许被迭代
+ *
+ */
 public interface EventExecutorGroup extends ScheduledExecutorService, Iterable<EventExecutor> {
 
     /**

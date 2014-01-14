@@ -43,24 +43,39 @@ import java.util.Map;
  * <p>When not used in a {@link ServerBootstrap} context, the {@link #bind()} methods are useful for connectionless
  * transports such as datagram (UDP).</p>
  */
+
+/**
+ * //TODO: 核心的Bootstrap的抽象实现，大部分方法的实现都是在该抽象类
+ * @param <B>
+ * @param <C>
+ */
 public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C extends Channel> implements Cloneable {
 
-    private volatile EventLoopGroup group;
-    private volatile ChannelFactory<? extends C> channelFactory;
-    private volatile SocketAddress localAddress;
-    private final Map<ChannelOption<?>, Object> options = new LinkedHashMap<ChannelOption<?>, Object>();
-    private final Map<AttributeKey<?>, Object> attrs = new LinkedHashMap<AttributeKey<?>, Object>();
-    private volatile ChannelHandler handler;
+    private volatile EventLoopGroup group;  //本质是一个ThreadExecutor
+    private volatile ChannelFactory<? extends C> channelFactory;  //创建Channel工厂类
+    private volatile SocketAddress localAddress; //端口地址
 
+    private final Map<ChannelOption<?>, Object> options = new LinkedHashMap<ChannelOption<?>, Object>();  //选参数的配置
+    private final Map<AttributeKey<?>, Object> attrs = new LinkedHashMap<AttributeKey<?>, Object>();
+
+
+    private volatile ChannelHandler handler;  //真正的流处理类
+
+    /**
+     * 构造函数
+     */
     AbstractBootstrap() {
         // Disallow extending from a different package.
     }
 
+
+    //核心构造函数
     AbstractBootstrap(AbstractBootstrap<B, C> bootstrap) {
         group = bootstrap.group;
         channelFactory = bootstrap.channelFactory;
         handler = bootstrap.handler;
         localAddress = bootstrap.localAddress;
+
         synchronized (bootstrap.options) {
             options.putAll(bootstrap.options);
         }
@@ -73,6 +88,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
      * The {@link EventLoopGroup} which is used to handle all the events for the to-be-creates
      * {@link Channel}
      */
+    //设置group属性
     @SuppressWarnings("unchecked")
     public B group(EventLoopGroup group) {
         if (group == null) {
@@ -90,10 +106,16 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
      * You either use this or {@link #channelFactory(ChannelFactory)} if your
      * {@link Channel} implementation has no no-args constructor.
      */
+    //设置channelClass，然后通过静态内部类BootstrapChannelFactory来产生hannel
     public B channel(Class<? extends C> channelClass) {
         if (channelClass == null) {
             throw new NullPointerException("channelClass");
         }
+        /**
+         * 1.BootstrapChannelFactory是一个静态内部类，对传入的Channel的class进行封装
+         * 2.调用channelFactory()方法，设置属性channelFactory
+         * 本质就是：this.channelFactory = new BootstrapChannelFactory(channelClass)
+         */
         return channelFactory(new BootstrapChannelFactory<C>(channelClass));
     }
 
@@ -152,6 +174,11 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
      * Allow to specify a {@link ChannelOption} which is used for the {@link Channel} instances once they got
      * created. Use a value of {@code null} to remove a previous set {@link ChannelOption}.
      */
+    /**
+     * 对this.options进行负值。
+     * 如果对应的key的option的value为null，则从options删除该属性
+     * 否则直接put
+     */
     @SuppressWarnings("unchecked")
     public <T> B option(ChannelOption<T> option, T value) {
         if (option == null) {
@@ -173,6 +200,10 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
      * Allow to specify an initial attribute of the newly created {@link Channel}.  If the {@code value} is
      * {@code null}, the attribute of the specified {@code key} is removed.
      */
+       /* 对this.attrs进行负值。
+        * 如果对应的key的value为null，则从attrs删除该属性
+        * 否则直接put
+        */
     public <T> B attr(AttributeKey<T> key, T value) {
         if (key == null) {
             throw new NullPointerException("key");
@@ -196,6 +227,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
      * Validate all the parameters. Sub-classes may override this, but should
      * call the super method in that case.
      */
+    //对group和channelFactory进行检查，是否为null
     @SuppressWarnings("unchecked")
     public B validate() {
         if (group == null) {
@@ -228,6 +260,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
      * Create a new {@link Channel} and bind it.
      */
     public ChannelFuture bind() {
+       //检查group和channelFactory属性是否为null
         validate();
         SocketAddress localAddress = this.localAddress;
         if (localAddress == null) {
@@ -268,9 +301,13 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         return doBind(localAddress);
     }
 
+    //真正的绑定监听端口的方法
     private ChannelFuture doBind(final SocketAddress localAddress) {
+
         final ChannelFuture regFuture = initAndRegister();
+
         final Channel channel = regFuture.channel();
+
         if (regFuture.cause() != null) {
             return regFuture;
         }
@@ -293,15 +330,26 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         return promise;
     }
 
+    /**
+     * //todo:构建ChannelFuture的核心方法
+     */
     final ChannelFuture initAndRegister() {
+        //1.新建并初始化channel对象
+        /**
+         * 在这里因为本质this.channelFactory = new BootstrapChannelFactory(channelClass)
+         * 同时BootstrapChannelFactory实例的newChannel()方法本质是，通过反射调用传入的参数
+         * channelClass来创建一个channel实例，Server端一般使用的是NioServerSocketChannel.class
+         */
         final Channel channel = channelFactory().newChannel();
+
         try {
+            //初始化channel实例：对channel实例进行相关参数设置
             init(channel);
         } catch (Throwable t) {
             channel.unsafe().closeForcibly();
             return channel.newFailedFuture(t);
         }
-
+        //
         ChannelFuture regFuture = group().register(channel);
         if (regFuture.cause() != null) {
             if (channel.isRegistered()) {

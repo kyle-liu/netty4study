@@ -22,6 +22,10 @@ package io.netty.util.concurrent;
  * access methods.
  *
  */
+
+/**
+ * EventExecutor是一个特殊的EventExecutorGroup
+ */
 public interface EventExecutor extends EventExecutorGroup {
 
     /**

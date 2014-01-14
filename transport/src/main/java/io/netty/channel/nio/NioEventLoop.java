@@ -47,6 +47,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * {@link Selector} and so does the multi-plexing of these in the event loop.
  *
  */
+
+/**
+ * //TODO:核心的NIO Selector实现类。该类的实现主要依赖java nio的API来
+ */
 public final class NioEventLoop extends SingleThreadEventLoop {
 
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(NioEventLoop.class);
@@ -94,7 +98,7 @@ public final class NioEventLoop extends SingleThreadEventLoop {
      * The NIO {@link Selector}.
      */
     Selector selector;
-    private SelectedSelectionKeySet selectedKeys;
+    private SelectedSelectionKeySet selectedKeys; //存放selector对象中selectedKeys和publicSelectedKeys属性值
 
     private final SelectorProvider provider;
 
@@ -135,22 +139,34 @@ public final class NioEventLoop extends SingleThreadEventLoop {
         try {
             SelectedSelectionKeySet selectedKeySet = new SelectedSelectionKeySet();
 
+            //从系统类加载器中获取类sun.nio.ch.SelectorImpl的class
             Class<?> selectorImplClass =
                     Class.forName("sun.nio.ch.SelectorImpl", false, ClassLoader.getSystemClassLoader());
 
+            /**
+             * 判断当前selector实例是否类sun.nio.ch.SelectorImpl的实例
+             * 如果不是则直接返回provider创建的selector
+             * 如果是则获取selector对象的selectedKeys和publicSelectedKeys属性，并赋值给selectedKeys
+             */
             // Ensure the current selector implementation is what we can instrument.
             if (!selectorImplClass.isAssignableFrom(selector.getClass())) {
                 return selector;
             }
 
+            //通过反射拿到selector class的selectedKeys Field对象
             Field selectedKeysField = selectorImplClass.getDeclaredField("selectedKeys");
+             //通过反射拿到selector class的publicSelectedKeys Field对象
             Field publicSelectedKeysField = selectorImplClass.getDeclaredField("publicSelectedKeys");
 
+            //设置这两个属性可以访问
             selectedKeysField.setAccessible(true);
             publicSelectedKeysField.setAccessible(true);
 
+            //TODO:重点代码：通过反射将selector对象的selectedKeys属性和publicSelectedKeys属性替换成selectedKeySet对象
+            //那么以后就可以直接从selectedKeySet中获取selector对象中所有的selectedKeys和publicSelectedKeys属性
             selectedKeysField.set(selector, selectedKeySet);
             publicSelectedKeysField.set(selector, selectedKeySet);
+
 
             selectedKeys = selectedKeySet;
             logger.trace("Instrumented an optimized java.util.Set into: {}", selector);
@@ -295,6 +311,9 @@ public final class NioEventLoop extends SingleThreadEventLoop {
         logger.info("Migrated " + nChannels + " channel(s) to the new Selector.");
     }
 
+    /**
+     * 执行引擎真正执行任务的方法，由该子类覆盖
+     */
     @Override
     protected void run() {
         for (;;) {
@@ -342,7 +361,10 @@ public final class NioEventLoop extends SingleThreadEventLoop {
 
                 final long ioStartTime = System.nanoTime();
                 needsToSelectAgain = false;
+
+                //判断selectedKeys是否获取到
                 if (selectedKeys != null) {
+
                     processSelectedKeysOptimized(selectedKeys.flip());
                 } else {
                     processSelectedKeysPlain(selector.selectedKeys());
@@ -469,6 +491,8 @@ public final class NioEventLoop extends SingleThreadEventLoop {
         }
     }
 
+
+    //todo:真正处理selector当有IO事件出现时，产生的SelectionKey
     private static void processSelectedKey(SelectionKey k, AbstractNioChannel ch) {
         final NioUnsafe unsafe = ch.unsafe();
         if (!k.isValid()) {

@@ -35,6 +35,10 @@ import java.util.concurrent.RejectedExecutionException;
 /**
  * A skeletal {@link Channel} implementation.
  */
+
+/**
+ * TODO:核心的AbstractChannel类
+ */
 public abstract class AbstractChannel extends DefaultAttributeMap implements Channel {
 
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(AbstractChannel.class);

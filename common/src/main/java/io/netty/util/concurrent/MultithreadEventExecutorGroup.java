@@ -27,6 +27,10 @@ import java.util.concurrent.atomic.AtomicInteger;
  * Abstract base class for {@link EventExecutorGroup} implementations that handles their tasks with multiple threads at
  * the same time.
  */
+
+/**
+ * //TODO:核心的多线程task处理执行引擎
+ */
 public abstract class MultithreadEventExecutorGroup extends AbstractEventExecutorGroup {
 
     private final EventExecutor[] children;
@@ -41,6 +45,7 @@ public abstract class MultithreadEventExecutorGroup extends AbstractEventExecuto
      * @param threadFactory     the ThreadFactory to use, or {@code null} if the default should be used.
      * @param args              arguments which will passed to each {@link #newChild(ThreadFactory, Object...)} call
      */
+    //TODO:对于这个构造函数，如果初始化执行引擎，需要重点理解
     protected MultithreadEventExecutorGroup(int nThreads, ThreadFactory threadFactory, Object... args) {
         if (nThreads <= 0) {
             throw new IllegalArgumentException(String.format("nThreads: %d (expected: > 0)", nThreads));
@@ -49,22 +54,31 @@ public abstract class MultithreadEventExecutorGroup extends AbstractEventExecuto
         if (threadFactory == null) {
             threadFactory = newDefaultThreadFactory();
         }
-
+        //初始化EventExecutor数组，每一个数组元素代表的是SingleThreadEventExecutor实例
         children = new SingleThreadEventExecutor[nThreads];
+
+
         for (int i = 0; i < nThreads; i ++) {
+            //success主要用来标示children的每一个元素即SingleThreadEventExecutor的子类实例是否创建成功
             boolean success = false;
             try {
+                //newChild是一个抽象方法，交给子类实现
                 children[i] = newChild(threadFactory, args);
+                //子线程全部初始化完成后，success标示为成功
                 success = true;
             } catch (Exception e) {
                 // TODO: Think about if this is a good exception type
                 throw new IllegalStateException("failed to create a child event loop", e);
             } finally {
+                //如果在初始化children数组的过程中出现任何异常，那么success还是等于false
+                //初始化children数组的过程中有出现异常,则把创建好的线程
                 if (!success) {
+                    //把已经初始化好的线程shutdown
                     for (int j = 0; j < i; j ++) {
                         children[j].shutdownGracefully();
                     }
 
+                    //
                     for (int j = 0; j < i; j ++) {
                         EventExecutor e = children[j];
                         try {
@@ -79,6 +93,7 @@ public abstract class MultithreadEventExecutorGroup extends AbstractEventExecuto
                 }
             }
         }
+
 
         final FutureListener<Object> terminationListener = new FutureListener<Object>() {
             @Override
