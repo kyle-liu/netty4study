@@ -41,6 +41,11 @@ import java.util.concurrent.Future;
  * The default {@link ChannelPipeline} implementation.  It is usually created
  * by a {@link Channel} implementation when the {@link Channel} is created.
  */
+
+/**
+ *TODO:  默认的ChannelPipeline实现类，所有的Handler都是添加到该管道
+ * 要好好认真读这个类
+ */
 final class DefaultChannelPipeline implements ChannelPipeline {
 
     static final InternalLogger logger = InternalLoggerFactory.getInstance(DefaultChannelPipeline.class);

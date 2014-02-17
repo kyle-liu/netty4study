@@ -59,7 +59,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
     private final Map<AttributeKey<?>, Object> attrs = new LinkedHashMap<AttributeKey<?>, Object>();
 
 
-    private volatile ChannelHandler handler;  //真正的流处理类
+    private volatile ChannelHandler handler;  //TODO:要理解这个父类handler的作用
 
     /**
      * 构造函数
@@ -290,6 +290,8 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         return bind(new InetSocketAddress(inetHost, inetPort));
     }
 
+
+    //绑定监听端口的对外接口
     /**
      * Create a new {@link Channel} and bind it.
      */
@@ -340,6 +342,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
          * 同时BootstrapChannelFactory实例的newChannel()方法本质是，通过反射调用传入的参数
          * channelClass来创建一个channel实例，Server端一般使用的是NioServerSocketChannel.class
          */
+        //所以这个channel实例是NioServerSocketChannel实例
         final Channel channel = channelFactory().newChannel();
 
         try {
@@ -371,6 +374,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         return regFuture;
     }
 
+    //子类ServerBootstrap实现该方法
     abstract void init(Channel channel) throws Exception;
 
     private static void doBind0(

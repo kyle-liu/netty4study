@@ -28,6 +28,7 @@ import io.netty.channel.ChannelPipeline;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.ServerChannel;
 import io.netty.channel.socket.SocketChannel;
+import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.util.AttributeKey;
 import io.netty.util.internal.StringUtil;
 import io.netty.util.internal.logging.InternalLogger;
@@ -49,7 +50,7 @@ public final class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, Se
     private final Map<ChannelOption<?>, Object> childOptions = new LinkedHashMap<ChannelOption<?>, Object>();
     private final Map<AttributeKey<?>, Object> childAttrs = new LinkedHashMap<AttributeKey<?>, Object>();
     private volatile EventLoopGroup childGroup;
-    private volatile ChannelHandler childHandler;
+    private volatile ChannelHandler childHandler; ////TODO:要理解这个子类handler的作用，以及和父类handler的区别
 
     public ServerBootstrap() { }
 
@@ -79,7 +80,7 @@ public final class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, Se
      * {@link Channel}'s.
      */
     public ServerBootstrap group(EventLoopGroup parentGroup, EventLoopGroup childGroup) {
-        super.group(parentGroup);
+        super.group(parentGroup);  //parentGroup传给了父类的构造函数
         if (childGroup == null) {
             throw new NullPointerException("childGroup");
         }
@@ -146,6 +147,9 @@ public final class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, Se
         return childGroup;
     }
 
+
+
+
     @Override
     void init(Channel channel) throws Exception {
         final Map<ChannelOption<?>, Object> options = options();
@@ -162,6 +166,21 @@ public final class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, Se
             }
         }
 
+        //将AbstractBootstrap的Hanlder添加到NioServerketChannel
+       /** b.group(bossGroup, workerGroup)
+                    .channel(NioServerSocketChannel.class)
+                    .option(ChannelOption.SO_BACKLOG, 100)
+                    .handler(new LoggingHandler(LogLevel.INFO))
+                    .childHandler(new ChannelInitializer<SocketChannel>() {
+                        @Override
+                        public void initChannel(SocketChannel ch) throws Exception {
+                            ch.pipeline().addLast(
+                                    //new LoggingHandler(LogLevel.INFO),
+                                    new EchoServerHandler());
+                        }
+                    });
+         就是把handler(new LoggingHandler(LogLevel.INFO))这个handler添加到NioServerketChannel的pipline
+        **/
         ChannelPipeline p = channel.pipeline();
         if (handler() != null) {
             p.addLast(handler());
@@ -178,6 +197,7 @@ public final class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, Se
             currentChildAttrs = childAttrs.entrySet().toArray(newAttrArray(childAttrs.size()));
         }
 
+        //
         p.addLast(new ChannelInitializer<Channel>() {
             @Override
             public void initChannel(Channel ch) throws Exception {
@@ -210,6 +230,8 @@ public final class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, Se
         return new Entry[size];
     }
 
+
+    //一个静态内部类，默认实现了上行消息处理适配器
     private static class ServerBootstrapAcceptor extends ChannelInboundHandlerAdapter {
 
         private final EventLoopGroup childGroup;
