@@ -28,15 +28,16 @@ import java.net.SocketAddress;
 
 final class DefaultChannelHandlerContext extends DefaultAttributeMap implements ChannelHandlerContext {
 
-    volatile DefaultChannelHandlerContext next;
-    volatile DefaultChannelHandlerContext prev;
+    volatile DefaultChannelHandlerContext next; //指向后面一个handlercontext
+    volatile DefaultChannelHandlerContext prev; //指向前面一个handlercontext
 
     private final boolean inbound;
     private final boolean outbound;
-    private final AbstractChannel channel;
+    private final AbstractChannel channel;  //所属的channel
+    //所属的pipline,pipline中把所有的DefaultChannelHandlerContext组成了一个链表
     private final DefaultChannelPipeline pipeline;
-    private final String name;
-    private final ChannelHandler handler;
+    private final String name;//名字
+    private final ChannelHandler handler; //包含的hander
     private boolean removed;
 
     // Will be set to null if no child executor should be used, otherwise it will be set to the

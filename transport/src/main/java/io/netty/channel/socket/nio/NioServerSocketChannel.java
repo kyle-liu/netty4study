@@ -44,6 +44,9 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel
 
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(NioServerSocketChannel.class);
 
+
+
+    //创建ServerSocketChannel实例
     private static ServerSocketChannel newSocket() {
         try {
             return ServerSocketChannel.open();
@@ -59,6 +62,7 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel
      * Create a new instance
      */
     public NioServerSocketChannel() {
+        //调用父类的构造函数
         super(null, newSocket(), SelectionKey.OP_ACCEPT);
         config = new DefaultServerSocketChannelConfig(this, javaChannel().socket());
     }
@@ -93,13 +97,17 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel
         return (ServerSocketChannel) super.javaChannel();
     }
 
+
     @Override
     protected SocketAddress localAddress0() {
         return javaChannel().socket().getLocalSocketAddress();
     }
 
+
+    //调用ServerSocketChannel的bind方法
     @Override
     protected void doBind(SocketAddress localAddress) throws Exception {
+        //
         javaChannel().socket().bind(localAddress, config.getBacklog());
     }
 

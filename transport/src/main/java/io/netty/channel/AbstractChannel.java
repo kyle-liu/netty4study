@@ -372,6 +372,8 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
         return estimatorHandle;
     }
 
+
+
     /**
      * {@link Unsafe} implementation which sub-classes must extend and use.
      */
@@ -395,6 +397,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
             return remoteAddress0();
         }
 
+        //todo:将channel实例注册到EventLoop核心方法
         @Override
         public final void register(EventLoop eventLoop, final ChannelPromise promise) {
             if (eventLoop == null) {

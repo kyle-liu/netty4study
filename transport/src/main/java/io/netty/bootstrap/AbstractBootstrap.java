@@ -346,13 +346,14 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         final Channel channel = channelFactory().newChannel();
 
         try {
-            //初始化channel实例：对channel实例进行相关参数设置
+            //初始化NioServerSocketChanne实例：对channel实例进行相关参数设置
             init(channel);
         } catch (Throwable t) {
             channel.unsafe().closeForcibly();
             return channel.newFailedFuture(t);
         }
-        //
+
+
         ChannelFuture regFuture = group().register(channel);
         if (regFuture.cause() != null) {
             if (channel.isRegistered()) {

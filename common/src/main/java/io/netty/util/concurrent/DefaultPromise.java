@@ -617,6 +617,7 @@ public class DefaultPromise<V> extends AbstractFuture<V> implements Promise<V> {
             eventExecutor.execute(new Runnable() {
                 @Override
                 public void run() {
+                    //调用Listener的监听方法
                     notifyListener0(future, l);
                 }
             });
@@ -624,6 +625,8 @@ public class DefaultPromise<V> extends AbstractFuture<V> implements Promise<V> {
             logger.error("Failed to notify a listener. Event loop shut down?", t);
         }
     }
+
+
 
     @SuppressWarnings({ "unchecked", "rawtypes" })
     static void notifyListener0(Future future, GenericFutureListener l) {
