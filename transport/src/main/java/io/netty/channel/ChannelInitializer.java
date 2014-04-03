@@ -58,6 +58,9 @@ public abstract class ChannelInitializer<C extends Channel> extends ChannelInbou
      * @param ch            the {@link Channel} which was registered.
      * @throws Exception    is thrown if an error occurs. In that case the {@link Channel} will be closed.
      */
+    /**
+     * 这个方法当channel被注册的时候被调用一次。在这个返回之后，将从ChannelPipeline中删除这个实例
+     */
     protected abstract void initChannel(C ch) throws Exception;
 
     @Override
@@ -66,8 +69,12 @@ public abstract class ChannelInitializer<C extends Channel> extends ChannelInbou
         ChannelPipeline pipeline = ctx.pipeline();
         boolean success = false;
         try {
+            //调用initChannel方法进行ChannelPipline初始化
             initChannel((C) ctx.channel());
+            //从pipline删除这个handler
             pipeline.remove(this);
+
+            //todo:为什么要调用这个方法
             ctx.fireChannelRegistered();
             success = true;
         } catch (Throwable t) {

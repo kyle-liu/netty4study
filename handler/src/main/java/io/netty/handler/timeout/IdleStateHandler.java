@@ -36,7 +36,7 @@ import java.util.concurrent.TimeUnit;
  * <table border="1">
  * <tr>
  * <th>Property</th><th>Meaning</th>
- * </tr>
+ * </tr>wh
  * <tr>
  * <td>{@code readerIdleTime}</td>
  * <td>an {@link IdleStateEvent} whose state is {@link IdleState#READER_IDLE}
@@ -93,6 +93,10 @@ import java.util.concurrent.TimeUnit;
  *
  * @see ReadTimeoutHandler
  * @see WriteTimeoutHandler
+ */
+
+/**
+ * 当一个Channel在一段时间里面没有处理read,write,或者read和write都没有发生，那么将触发一个IdleStateEvent事件
  */
 public class IdleStateHandler extends ChannelDuplexHandler {
 

@@ -126,6 +126,9 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
      * has a no-args constructor, its highly recommend to just use {@link #channel(Class)} for
      * simplify your code.
      */
+    /**
+     * 给this.channelFactory属性赋值
+     */
     @SuppressWarnings("unchecked")
     public B channelFactory(ChannelFactory<? extends C> channelFactory) {
         if (channelFactory == null) {
@@ -306,7 +309,9 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
     //真正的绑定监听端口的方法
     private ChannelFuture doBind(final SocketAddress localAddress) {
 
+        //1.初始化channel并将初始化好的channel注册到事件循环
         final ChannelFuture regFuture = initAndRegister();
+
 
         final Channel channel = regFuture.channel();
 
@@ -314,6 +319,8 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
             return regFuture;
         }
 
+
+        //
         final ChannelPromise promise;
         if (regFuture.isDone()) {
             promise = channel.newPromise();
@@ -354,6 +361,8 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         }
 
 
+        //将channel注册到事件循环
+        //todo:这个注册的过程需要好好仔细理解
         ChannelFuture regFuture = group().register(channel);
         if (regFuture.cause() != null) {
             if (channel.isRegistered()) {
@@ -384,7 +393,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
 
         // This method is invoked before channelRegistered() is triggered.  Give user handlers a chance to set up
         // the pipeline in its channelRegistered() implementation.
-        channel.eventLoop().execute(new Runnable() {
+           channel.eventLoop().execute(new Runnable() {
             @Override
             public void run() {
                 if (regFuture.isSuccess()) {

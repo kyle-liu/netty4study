@@ -42,6 +42,7 @@ final class DefaultChannelHandlerContext extends DefaultAttributeMap implements 
 
     // Will be set to null if no child executor should be used, otherwise it will be set to the
     // child executor.
+    //如果没有使用child 执行器，那么这里将被设置为null,否则将赋值为child executor
     final EventExecutor executor;
     private ChannelFuture succeededFuture;
 
@@ -142,6 +143,8 @@ final class DefaultChannelHandlerContext extends DefaultAttributeMap implements 
         return name;
     }
 
+
+    //触发ChannelRegister事件
     @Override
     public ChannelHandlerContext fireChannelRegistered() {
         final DefaultChannelHandlerContext next = findContextInbound();
@@ -194,8 +197,14 @@ final class DefaultChannelHandlerContext extends DefaultAttributeMap implements 
 
     @Override
     public ChannelHandlerContext fireChannelActive() {
+        //先找到当前ChannelHandlerContext的下一个ChannelHandlerContext
         final DefaultChannelHandlerContext next = findContextInbound();
+        //得到执行器
         EventExecutor executor = next.executor();
+        /**
+         * 1.首先executor.inEventLoop()方法判断当前线程是不是netty创建的
+         */
+        //调用上面得到的next的真正的invokeChannelActive
         if (executor.inEventLoop()) {
             next.invokeChannelActive();
         } else {
@@ -209,6 +218,20 @@ final class DefaultChannelHandlerContext extends DefaultAttributeMap implements 
         return this;
     }
 
+
+    /**
+     * 注意这里pipline里面的handler是如何链式调用的：
+     * 1.pipline里面通过 DefaultChannelHandlerContext next，DefaultChannelHandlerContext prev这两个属性把add到pipline
+     *   的所有handler组装成一个双向链表
+     * 2.调用真正handler的channelActive方法，同时把当前DefaultChannelHandlerContext对象当做参数传入进去
+     * 3.我们来看handler默认实现的channelActive方法：
+     *  @Override
+     *  public void channelActive(ChannelHandlerContext ctx) throws Exception {
+     *     ctx.fireChannelActive();
+     *    }
+     * 默认实现就是调用传入参数的ctx.fireChannelActive()方法，该方法又会重复
+     * 4.如果在handler对应的方法里面不调用ctx.fireChannelActive();那么循环终止
+     */
     private void invokeChannelActive() {
         try {
             ((ChannelInboundHandler) handler).channelActive(this);
@@ -819,7 +842,14 @@ final class DefaultChannelHandlerContext extends DefaultAttributeMap implements 
         }
     }
 
+
+
     private DefaultChannelHandlerContext findContextInbound() {
+        /**
+         * inbound时候，从head往tail遍历handle,并找出这些handle里面所有inbound类型的handle,
+         * 一直遍历到TailHandle,TailHandle是netty默认实现的一个inbound类型的handle，这个TailHandle默认实现的
+         * ChannelInboundHandler接口都是空方法，所以当调用到tail对应的方法的时候，调用链就会终止
+         */
         DefaultChannelHandlerContext ctx = this;
         do {
             ctx = ctx.next;

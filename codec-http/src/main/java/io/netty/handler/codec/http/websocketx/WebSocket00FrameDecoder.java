@@ -96,6 +96,7 @@ public class WebSocket00FrameDecoder extends ReplayingDecoder<Void> implements W
         return new BinaryWebSocketFrame(payload);
     }
 
+    //TODO:真正将ByteBuf里面的字节解析成TextWebSocketFrame对象
     private WebSocketFrame decodeTextFrame(ChannelHandlerContext ctx, ByteBuf buffer) {
         int ridx = buffer.readerIndex();
         int rbytes = actualReadableBytes();

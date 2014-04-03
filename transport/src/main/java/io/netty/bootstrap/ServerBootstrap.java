@@ -148,11 +148,12 @@ public final class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, Se
     }
 
 
-
-
-
+    /**
+     *初始化channel
+     */
     @Override
     void init(Channel channel) throws Exception {
+
         final Map<ChannelOption<?>, Object> options = options();
         synchronized (options) {
             channel.config().setOptions(options);
@@ -232,7 +233,9 @@ public final class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, Se
     }
 
 
-    //一个静态内部类，默认实现了上行消息处理适配器
+    /**
+     *
+     */
     private static class ServerBootstrapAcceptor extends ChannelInboundHandlerAdapter {
 
         private final EventLoopGroup childGroup;

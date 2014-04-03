@@ -206,6 +206,9 @@ public class DefaultPromise<V> extends AbstractFuture<V> implements Promise<V> {
         return this;
     }
 
+
+
+    
     @Override
     public Promise<V> sync() throws InterruptedException {
         await();

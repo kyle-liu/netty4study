@@ -59,10 +59,22 @@ class WebSocketServerProtocolHandshakeHandler
 
         final WebSocketServerHandshakerFactory wsFactory = new WebSocketServerHandshakerFactory(
                 getWebSocketLocation(ctx.pipeline(), req, websocketPath), subprotocols, allowExtensions);
+
+        /**
+         * 根据请求构建出WebSocketServerHandshaker的实例，该构造构成完成以下工作:
+         * 根据HttpRequest中header中解析出来的client支持的websocket的版本不同，构建出不同的子类实例：
+         *   WebSocketServerHandshaker13,WebSocketServerHandshaker08,WebSocketServerHandshaker07,WebSocketServerHandshaker00
+         *2
+         */
         final WebSocketServerHandshaker handshaker = wsFactory.newHandshaker(req);
+        //如果工厂构建出的handshaker对象为null，那说明server端不支持client的websocket版本，发送UnsupportedWebSocketVersionResponse
         if (handshaker == null) {
             WebSocketServerHandshakerFactory.sendUnsupportedWebSocketVersionResponse(ctx.channel());
         } else {
+            /**
+             * 如果支持，则进行握手操作：
+             *
+             */
             final ChannelFuture handshakeFuture = handshaker.handshake(ctx.channel(), req);
             handshakeFuture.addListener(new ChannelFutureListener() {
                 @Override

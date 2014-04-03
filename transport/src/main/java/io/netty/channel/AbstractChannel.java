@@ -43,8 +43,8 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
 
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(AbstractChannel.class);
 
-    static final ClosedChannelException CLOSED_CHANNEL_EXCEPTION = new ClosedChannelException();
-    static final NotYetConnectedException NOT_YET_CONNECTED_EXCEPTION = new NotYetConnectedException();
+    static final ClosedChannelException CLOSED_CHANNEL_EXCEPTION = new ClosedChannelException(); //关闭Channel异常
+    static final NotYetConnectedException NOT_YET_CONNECTED_EXCEPTION = new NotYetConnectedException(); //还没有连接异常
 
     static {
         CLOSED_CHANNEL_EXCEPTION.setStackTrace(EmptyArrays.EMPTY_STACK_TRACE);

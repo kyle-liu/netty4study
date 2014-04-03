@@ -82,6 +82,8 @@ public class WebSocketServerHandshakerFactory {
      * @return A new WebSocketServerHandshaker for the requested web socket version. Null if web
      *         socket version is not supported.
      */
+    //TODO:解析HttpRequest里面的header,看是client支持的websocket版本
+    //并根据不同的版本构建其WebSocketServerHandshaker对象，该对象，把对应的byteMessage转换成TextWebSocketFrame
     public WebSocketServerHandshaker newHandshaker(HttpRequest req) {
 
         String version = req.headers().get(Names.SEC_WEBSOCKET_VERSION);
@@ -113,6 +115,7 @@ public class WebSocketServerHandshakerFactory {
      * @param channel
      *            Channel
      */
+    //如果服务端不支持client的websocket版本，则直接发送该Response
     public static void sendUnsupportedWebSocketVersionResponse(Channel channel) {
         HttpResponse res = new DefaultHttpResponse(
                 HttpVersion.HTTP_1_1,

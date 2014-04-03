@@ -152,13 +152,18 @@ public abstract class WebSocketServerHandshaker {
      * @return future
      *            the {@link ChannelFuture} which is notified when the opening handshake is done
      */
+    /**
+     * 当server端检查支持client的websocket版后，开始握手
+     */
     public final ChannelFuture handshake(Channel channel, FullHttpRequest req,
                                             HttpHeaders responseHeaders, final ChannelPromise promise) {
 
         if (logger.isDebugEnabled()) {
             logger.debug(String.format("%s WS Version %s server handshake", channel, version()));
         }
+        //TODO:核心的握手Response构建方法，需要仔细看懂
         FullHttpResponse response = newHandshakeResponse(req, responseHeaders);
+
         ChannelPipeline p = channel.pipeline();
         if (p.get(HttpObjectAggregator.class) != null) {
             p.remove(HttpObjectAggregator.class);
@@ -176,6 +181,8 @@ public abstract class WebSocketServerHandshaker {
                         new IllegalStateException("No HttpDecoder and no HttpServerCodec in the pipeline"));
                 return promise;
             }
+            //会给pipline动态加入其子类实现的的decoder和encoder，这些子类是真正
+            //支持不同版本WebSokcet实现类
             p.addBefore(ctx.name(), "wsdecoder", newWebsocketDecoder());
             p.addBefore(ctx.name(), "wsencoder", newWebSocketEncoder());
             encoderName = ctx.name();

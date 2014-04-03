@@ -52,7 +52,7 @@ final class DefaultChannelPipeline implements ChannelPipeline {
 
     @SuppressWarnings("unchecked")
     private static final WeakHashMap<Class<?>, String>[] nameCaches =
-            new WeakHashMap[Runtime.getRuntime().availableProcessors()];
+            new WeakHashMap[Runtime.getRuntime().availableProcessors()]; //handler名字的cache数组，该数组的长度默认为CPU的核数
 
     static {
         for (int i = 0; i < nameCaches.length; i ++) {
@@ -66,8 +66,9 @@ final class DefaultChannelPipeline implements ChannelPipeline {
     final DefaultChannelHandlerContext tail;
 
     private final Map<String, DefaultChannelHandlerContext> name2ctx =
-        new HashMap<String, DefaultChannelHandlerContext>(4);
+        new HashMap<String, DefaultChannelHandlerContext>(4); //key :handler的名字  value:ChannelHandlerContext
 
+    //TODO:还没有弄懂这个ma的作用
     final Map<EventExecutorGroup, EventExecutor> childExecutors =
             new IdentityHashMap<EventExecutorGroup, EventExecutor>();
 
@@ -96,6 +97,8 @@ final class DefaultChannelPipeline implements ChannelPipeline {
     public ChannelPipeline addFirst(String name, ChannelHandler handler) {
         return addFirst(null, name, handler);
     }
+
+
 
     @Override
     public ChannelPipeline addFirst(EventExecutorGroup group, final String name, ChannelHandler handler) {
@@ -126,6 +129,8 @@ final class DefaultChannelPipeline implements ChannelPipeline {
     public ChannelPipeline addLast(String name, ChannelHandler handler) {
         return addLast(null, name, handler);
     }
+
+
 
     @Override
     public ChannelPipeline addLast(EventExecutorGroup group, final String name, ChannelHandler handler) {
@@ -187,6 +192,7 @@ final class DefaultChannelPipeline implements ChannelPipeline {
     public ChannelPipeline addAfter(String baseName, String name, ChannelHandler handler) {
         return addAfter(null, baseName, name, handler);
     }
+
 
     @Override
     public ChannelPipeline addAfter(
@@ -756,14 +762,17 @@ final class DefaultChannelPipeline implements ChannelPipeline {
         tail.prev.teardown();
     }
 
+
+
+    //当一个Channel标示为active的，那么代表已经有client连接上了
     @Override
     public ChannelPipeline fireChannelActive() {
+        //从pipline的head开始触发ChannelActive事件
         head.fireChannelActive();
-
+        //判断isAutoRead的值，如果为true(默认值为true),则自动调用read
         if (channel.config().isAutoRead()) {
             channel.read();
         }
-
         return this;
     }
 
@@ -979,6 +988,7 @@ final class DefaultChannelPipeline implements ChannelPipeline {
         @Override
         public void channelReadComplete(ChannelHandlerContext ctx) throws Exception { }
     }
+
 
     static final class HeadHandler implements ChannelOutboundHandler {
 
