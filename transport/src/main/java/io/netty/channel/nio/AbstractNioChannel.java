@@ -289,11 +289,7 @@ public abstract class AbstractNioChannel extends AbstractChannel {
     }
 
 
-    //todo:真正和JAVA NIO和Netty结合的地方
 
-    /**
-     *
-     */
     @Override
     protected void doRegister() throws Exception {
         boolean selected = false;

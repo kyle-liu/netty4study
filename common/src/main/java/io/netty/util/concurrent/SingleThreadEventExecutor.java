@@ -118,12 +118,17 @@ public abstract class SingleThreadEventExecutor extends AbstractEventExecutor {
                 boolean success = false;
                 updateLastExecutionTime();
                 try {
-                    //线程封装的任务实际是SingleThreadEventExecutor的run()方法
+                    /**
+                     * 线程封装的任务实际是SingleThreadEventExecutor的run()方法,
+                     * 该方法在SingleThreadEventExecutor中是一个抽象方法，留给子类去实现
+                     */
                     SingleThreadEventExecutor.this.run();
                     success = true;
                 } catch (Throwable t) {
                     logger.warn("Unexpected exception from an event executor: ", t);
                 } finally {
+
+                    //todo:下面的代码还没有看懂
                     if (state < ST_SHUTTING_DOWN) {
                         state = ST_SHUTTING_DOWN;
                     }
@@ -707,7 +712,7 @@ public abstract class SingleThreadEventExecutor extends AbstractEventExecutor {
     }
 
 
-    //添加并执行task的方法
+    //执行task的方法
     @Override
     public void execute(Runnable task) {
         //检查task参数是否为null，如果为null，则抛出异常
@@ -715,12 +720,16 @@ public abstract class SingleThreadEventExecutor extends AbstractEventExecutor {
             throw new NullPointerException("task");
         }
 
-        //检查当前runtime的线程对象是否是SingleThreadEventExecutor进行threadFactory.newThread出来的线程
+        /**
+         * 检查当前runtime的线程对象是否是group从child数组通过next()方法取出的eventloop即SingleThreadEventExecutor封装的thread对象
+         * todo:这样做的目的：是为了保证netty中的任务都是交给netty创建的event_loop来执行
+         */
         boolean inEventLoop = inEventLoop();
         if (inEventLoop) {
-            //如果是则直接把当前需要执行的任务添加到任务队列
+            //如果当前runtime的线程对象是否是group从child数组通过next()方法取出的eventloop，那么直接把该任务放入任务队列
             addTask(task);
         } else {
+            //否则，启动当前这个eventloop，并把这个任务放入任务队列
             //启动线程
             startThread();
             //添加参数中的任务到任务队列

@@ -29,24 +29,32 @@ final class SelectedSelectionKeySet extends AbstractSet<SelectionKey> {
     private boolean isA = true;
 
     SelectedSelectionKeySet() {
+        //keysA初始化为一个1024的SelectionKey数组，并克隆给keysB
         keysA = new SelectionKey[1024];
         keysB = keysA.clone();
     }
 
     @Override
     public boolean add(SelectionKey o) {
+        //参数检查
         if (o == null) {
             return false;
         }
 
+        //判断当前使用的SelectionKey[]是否是keyA
         if (isA) {
             int size = keysASize;
+            //将新增的SelectionKey元素o赋值给数组keysA指定下标元素
             keysA[size ++] = o;
+            //给keysASize赋值为
             keysASize = size;
+            //新增元素时，如果新增元素的个数等于keysA的长度，则扩容keysA数组
             if (size == keysA.length) {
                 doubleCapacityA();
             }
-        } else {
+        }
+        //对keysB进行同样的操作
+        else {
             int size = keysBSize;
             keysB[size ++] = o;
             keysBSize = size;
@@ -57,6 +65,7 @@ final class SelectedSelectionKeySet extends AbstractSet<SelectionKey> {
 
         return true;
     }
+
 
     private void doubleCapacityA() {
         SelectionKey[] newKeysA = new SelectionKey[keysA.length << 1];
@@ -70,8 +79,12 @@ final class SelectedSelectionKeySet extends AbstractSet<SelectionKey> {
         keysB = newKeysB;
     }
 
+
+    //todo: think about 如何优化的
     SelectionKey[] flip() {
+        //如果当前使用的是keysA
         if (isA) {
+            //先设置当前使用的isA为false
             isA = false;
             keysA[keysASize] = null;
             keysBSize = 0;

@@ -48,9 +48,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  *
  */
 
-/**
- * //TODO:核心的NIO Selector实现类。该类的实现主要依赖java nio的API来
- */
+
 public final class NioEventLoop extends SingleThreadEventLoop {
 
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(NioEventLoop.class);
@@ -80,6 +78,7 @@ public final class NioEventLoop extends SingleThreadEventLoop {
             }
         }
 
+        //todo:这些变量也需要好好理解
         int selectorAutoRebuildThreshold = SystemPropertyUtil.getInt("io.netty.selectorAutoRebuildThreshold", 512);
         if (selectorAutoRebuildThreshold < MIN_PREMATURE_SELECTOR_RETURNS) {
             selectorAutoRebuildThreshold = 0;
@@ -134,6 +133,7 @@ public final class NioEventLoop extends SingleThreadEventLoop {
         }
 
         //如果禁用netty KeySet优化开启，那么就直接返回selector
+        //todo:think about netty是如何优化selectedKeySet即类SelectedSelectionKeySet
         if (DISABLE_KEYSET_OPTIMIZATION) {
             return selector;
         }
@@ -321,7 +321,7 @@ public final class NioEventLoop extends SingleThreadEventLoop {
     @Override
     protected void run() {
         for (; ; ) {
-            //得到旧值，并给wakenUp复制为false
+            //得到旧值赋值给oldWakenUp，并给wakenUp赋值为false
             oldWakenUp = wakenUp.getAndSet(false);
             try {
                 if (hasTasks()) {
@@ -615,6 +615,7 @@ public final class NioEventLoop extends SingleThreadEventLoop {
         }
     }
 
+    //todo:通过封装后的select方法，要认真读
     private void select() throws IOException {
         Selector selector = this.selector;
         try {
