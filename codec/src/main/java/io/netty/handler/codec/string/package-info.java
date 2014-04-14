@@ -19,3 +19,10 @@
  * {@link io.netty.buffer.ByteBuf} and vice versa.
  */
 package io.netty.handler.codec.string;
+
+/**
+ *上行消息: 将ByteBuf----->按照指定的字符集转换成String
+ *下行消息: 将String ------>按照指定的字符集转成ByteBuf
+ */
+
+

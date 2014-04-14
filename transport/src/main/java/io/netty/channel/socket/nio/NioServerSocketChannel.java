@@ -116,11 +116,17 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel
         javaChannel().close();
     }
 
+
+    //todo:核心的NioServerSokcetChannel  accept客户端连接的方法
     @Override
     protected int doReadMessages(List<Object> buf) throws Exception {
         SocketChannel ch = javaChannel().accept();
         try {
             if (ch != null) {
+                /**
+                 * 1.accept客户端的连接,并产生对应的一个cLient SocketChannel
+                 * 2.创建一个NioSocketChannel，通过构造函数，把对应的ServerSocketChannel和产生的新的SocketChannel传入进去
+                 */
                 buf.add(new NioSocketChannel(this, ch));
                 return 1;
             }

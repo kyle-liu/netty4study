@@ -153,13 +153,14 @@ public final class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, Se
      */
     @Override
     void init(Channel channel) throws Exception {
-
-        final Map<ChannelOption<?>, Object> options = options();
+     final Map<ChannelOption<?>, Object> options = options();
         synchronized (options) {
             channel.config().setOptions(options);
         }
 
+
         final Map<AttributeKey<?>, Object> attrs = attrs();
+
         synchronized (attrs) {
             for (Entry<AttributeKey<?>, Object> e: attrs.entrySet()) {
                 @SuppressWarnings("unchecked")
@@ -253,6 +254,11 @@ public final class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, Se
             this.childAttrs = childAttrs;
         }
 
+
+        /**
+         *
+         *
+         **/
         @Override
         @SuppressWarnings("unchecked")
         public void channelRead(ChannelHandlerContext ctx, Object msg) {

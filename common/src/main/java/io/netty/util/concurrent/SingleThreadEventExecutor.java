@@ -40,7 +40,6 @@ import java.util.concurrent.TimeUnit;
  */
 
 /**
- * //TODO:核心的单线程task执行引擎---一定要好好理解
  * 其本质实际就是把一个Thread+task进行封装
  */
 public abstract class SingleThreadEventExecutor extends AbstractEventExecutor {
@@ -48,6 +47,14 @@ public abstract class SingleThreadEventExecutor extends AbstractEventExecutor {
     private static final InternalLogger logger =
             InternalLoggerFactory.getInstance(SingleThreadEventExecutor.class);
 
+    /**
+     * SingleThreadEventExecutor封装的状态：
+     * ST_NOT_STARTED ：还没有开始
+     * ST_STARTED：已经开始
+     * ST_SHUTTING_DOWN：正在shutdown
+     * ST_SHUTDOWN:已经shutdown
+     * ST_TERMINATED:已停止
+     */
     private static final int ST_NOT_STARTED = 1;
     private static final int ST_STARTED = 2;
     private static final int ST_SHUTTING_DOWN = 3;
@@ -61,18 +68,24 @@ public abstract class SingleThreadEventExecutor extends AbstractEventExecutor {
         }
     };
 
-    private final EventExecutorGroup parent;
+    private final EventExecutorGroup parent;   //当前SingleThreadEventExecutor所属的group
+    /**
+     * 任务队列，在构造函数中调用newTaskQueue()方法进行初始化：
+     * 在SingleThreadEventExecutor的默认初始化是LinkedBlockingQueue<Runnable>
+     * 在NioEventLoop中默认初始化的是ConcurrentLinkedQueue<Runnable>
+     */
     private final Queue<Runnable> taskQueue;
     final Queue<ScheduledFutureTask<?>> delayedTaskQueue = new PriorityQueue<ScheduledFutureTask<?>>();
 
-    private final Thread thread;
-    private final Object stateLock = new Object();
+    private final Thread thread;   //真正执行task的线程
+
     private final Semaphore threadLock = new Semaphore(0);
     private final Set<Runnable> shutdownHooks = new LinkedHashSet<Runnable>();
     private final boolean addTaskWakesUp;
 
     private long lastExecutionTime;
-    private volatile int state = ST_NOT_STARTED;
+    private final Object stateLock = new Object();  //更改state时使用的锁对象
+    private volatile int state = ST_NOT_STARTED;  //当前EventExecutor的状态，默认值为ST_NOT_STARTED(还未开始)
     private volatile long gracefulShutdownQuietPeriod;
     private volatile long gracefulShutdownTimeout;
     private long gracefulShutdownStartTime;
@@ -87,12 +100,6 @@ public abstract class SingleThreadEventExecutor extends AbstractEventExecutor {
      * @param addTaskWakesUp    {@code true} if and only if invocation of {@link #addTask(Runnable)} will wake up the
      *                          executor thread
      */
-    /**
-     * //TODO:构造函数要好好理解
-     * @param parent
-     * @param threadFactory
-     * @param addTaskWakesUp
-     */
     protected SingleThreadEventExecutor(
             EventExecutorGroup parent, ThreadFactory threadFactory, boolean addTaskWakesUp) {
 
@@ -104,13 +111,14 @@ public abstract class SingleThreadEventExecutor extends AbstractEventExecutor {
         this.addTaskWakesUp = addTaskWakesUp;
 
 
+        //使用threadFactory创建线程
         thread = threadFactory.newThread(new Runnable() {
             @Override
             public void run() {
                 boolean success = false;
                 updateLastExecutionTime();
                 try {
-                    //执行任务
+                    //线程封装的任务实际是SingleThreadEventExecutor的run()方法
                     SingleThreadEventExecutor.this.run();
                     success = true;
                 } catch (Throwable t) {
@@ -124,13 +132,13 @@ public abstract class SingleThreadEventExecutor extends AbstractEventExecutor {
                     if (success && gracefulShutdownStartTime == 0) {
                         logger.error(
                                 "Buggy " + EventExecutor.class.getSimpleName() + " implementation; " +
-                                SingleThreadEventExecutor.class.getSimpleName() + ".confirmShutdown() must be called " +
-                                "before run() implementation terminates.");
+                                        SingleThreadEventExecutor.class.getSimpleName() + ".confirmShutdown() must be called " +
+                                        "before run() implementation terminates.");
                     }
 
                     try {
                         // Run all remaining tasks and shutdown hooks.
-                        for (;;) {
+                        for (; ; ) {
                             if (confirmShutdown()) {
                                 break;
                             }
@@ -146,7 +154,7 @@ public abstract class SingleThreadEventExecutor extends AbstractEventExecutor {
                             if (!taskQueue.isEmpty()) {
                                 logger.warn(
                                         "An event executor terminated with " +
-                                        "non-empty task queue (" + taskQueue.size() + ')');
+                                                "non-empty task queue (" + taskQueue.size() + ')');
                             }
 
                             terminationFuture.setSuccess(null);
@@ -156,6 +164,8 @@ public abstract class SingleThreadEventExecutor extends AbstractEventExecutor {
             }
         });
 
+        //初始化taskQueue，该方法在SingleThreadEventExecutor的默认实现返回一个LinkedBlockingQueue<Runnable>
+        //在NioEventLoop的实现返回的是ConcurrentLinkedQueue<Runnable>
         taskQueue = newTaskQueue();
     }
 
@@ -186,7 +196,7 @@ public abstract class SingleThreadEventExecutor extends AbstractEventExecutor {
      */
     protected Runnable pollTask() {
         assert inEventLoop();
-        for (;;) {
+        for (; ; ) {
             Runnable task = taskQueue.poll();
             if (task == WAKEUP_TASK) {
                 continue;
@@ -211,7 +221,7 @@ public abstract class SingleThreadEventExecutor extends AbstractEventExecutor {
         }
 
         BlockingQueue<Runnable> taskQueue = (BlockingQueue<Runnable>) this.taskQueue;
-        for (;;) {
+        for (; ; ) {
             ScheduledFutureTask<?> delayedTask = delayedTaskQueue.peek();
             if (delayedTask == null) {
                 Runnable task = null;
@@ -252,7 +262,7 @@ public abstract class SingleThreadEventExecutor extends AbstractEventExecutor {
 
     private void fetchFromDelayedQueue() {
         long nanoTime = 0L;
-        for (;;) {
+        for (; ; ) {
             ScheduledFutureTask<?> delayedTask = delayedTaskQueue.peek();
             if (delayedTask == null) {
                 break;
@@ -289,7 +299,7 @@ public abstract class SingleThreadEventExecutor extends AbstractEventExecutor {
 
     /**
      * Return the number of tasks that are pending for processing.
-     *
+     * <p/>
      * <strong>Be aware that this operation may be expensive as it depends on the internal implementation of the
      * SingleThreadEventExecutor. So use it was care!</strong>
      */
@@ -301,10 +311,13 @@ public abstract class SingleThreadEventExecutor extends AbstractEventExecutor {
      * Add a task to the task queue, or throws a {@link RejectedExecutionException} if this instance was shutdown
      * before.
      */
+    //添加任务到任务队列
     protected void addTask(Runnable task) {
+        //参数检查
         if (task == null) {
             throw new NullPointerException("task");
         }
+        //判断
         if (isShutdown()) {
             reject();
         }
@@ -314,6 +327,7 @@ public abstract class SingleThreadEventExecutor extends AbstractEventExecutor {
     /**
      * @see {@link Queue#remove(Object)}
      */
+    //从任务队列中删除给定任务
     protected boolean removeTask(Runnable task) {
         if (task == null) {
             throw new NullPointerException("task");
@@ -333,7 +347,7 @@ public abstract class SingleThreadEventExecutor extends AbstractEventExecutor {
             return false;
         }
 
-        for (;;) {
+        for (; ; ) {
             try {
                 task.run();
             } catch (Throwable t) {
@@ -362,14 +376,14 @@ public abstract class SingleThreadEventExecutor extends AbstractEventExecutor {
         final long deadline = ScheduledFutureTask.nanoTime() + timeoutNanos;
         long runTasks = 0;
         long lastExecutionTime;
-        for (;;) {
+        for (; ; ) {
             try {
                 task.run();
             } catch (Throwable t) {
                 logger.warn("A task raised an exception.", t);
             }
 
-            runTasks ++;
+            runTasks++;
 
             // Check timeout every 64 tasks because nanoTime() is relatively expensive.
             // XXX: Hard-coded value - will make it configurable if it is really a problem.
@@ -432,6 +446,8 @@ public abstract class SingleThreadEventExecutor extends AbstractEventExecutor {
         }
     }
 
+
+    //检查当前runtime的线程对象，是否是eventloop
     @Override
     public boolean inEventLoop(Thread thread) {
         return thread == this.thread;
@@ -475,7 +491,7 @@ public abstract class SingleThreadEventExecutor extends AbstractEventExecutor {
         while (!shutdownHooks.isEmpty()) {
             List<Runnable> copy = new ArrayList<Runnable>(shutdownHooks);
             shutdownHooks.clear();
-            for (Runnable task: copy) {
+            for (Runnable task : copy) {
                 try {
                     task.run();
                 } catch (Throwable t) {
@@ -571,16 +587,16 @@ public abstract class SingleThreadEventExecutor extends AbstractEventExecutor {
                 state = ST_SHUTDOWN;
             } else {
                 switch (state) {
-                case ST_NOT_STARTED:
-                    state = ST_SHUTDOWN;
-                    thread.start();
-                    break;
-                case ST_STARTED:
-                case ST_SHUTTING_DOWN:
-                    state = ST_SHUTDOWN;
-                    break;
-                default:
-                    wakeup = false;
+                    case ST_NOT_STARTED:
+                        state = ST_SHUTDOWN;
+                        thread.start();
+                        break;
+                    case ST_STARTED:
+                    case ST_SHUTTING_DOWN:
+                        state = ST_SHUTDOWN;
+                        break;
+                    default:
+                        wakeup = false;
                 }
             }
         }
@@ -666,7 +682,7 @@ public abstract class SingleThreadEventExecutor extends AbstractEventExecutor {
         final ScheduledFutureTask<?>[] delayedTasks =
                 delayedTaskQueue.toArray(new ScheduledFutureTask<?>[delayedTaskQueue.size()]);
 
-        for (ScheduledFutureTask<?> task: delayedTasks) {
+        for (ScheduledFutureTask<?> task : delayedTasks) {
             task.cancel(false);
         }
 
@@ -690,23 +706,37 @@ public abstract class SingleThreadEventExecutor extends AbstractEventExecutor {
         return isTerminated();
     }
 
+
+    //添加并执行task的方法
     @Override
     public void execute(Runnable task) {
+        //检查task参数是否为null，如果为null，则抛出异常
         if (task == null) {
             throw new NullPointerException("task");
         }
 
+        //检查当前runtime的线程对象是否是SingleThreadEventExecutor进行threadFactory.newThread出来的线程
         boolean inEventLoop = inEventLoop();
         if (inEventLoop) {
+            //如果是则直接把当前需要执行的任务添加到任务队列
             addTask(task);
         } else {
+            //启动线程
             startThread();
+            //添加参数中的任务到任务队列
             addTask(task);
+            /**
+             * 1.判断当前线程是否已经停止
+             * 2.如果已经停止则从任务队列中删除该任务
+             * 如果线程已经停止并且删除任务成功，则抛出异常：
+             *  throw new RejectedExecutionException("event executor terminated");
+             */
             if (isShutdown() && removeTask(task)) {
                 reject();
             }
         }
 
+        //todo:唤醒event_loop线程
         if (!addTaskWakesUp) {
             wakeup(inEventLoop);
         }
@@ -815,10 +845,16 @@ public abstract class SingleThreadEventExecutor extends AbstractEventExecutor {
         return task;
     }
 
+
+    //启动线程
     private void startThread() {
+        //先给stateLock加锁
         synchronized (stateLock) {
             if (state == ST_NOT_STARTED) {
+                //将当前状态更改为ST_STARTED(已开始)
                 state = ST_STARTED;
+
+                //todo:这段代码还没有看懂
                 delayedTaskQueue.add(new ScheduledFutureTask<Void>(
                         this, delayedTaskQueue, Executors.<Void>callable(new PurgeTask(), null),
                         ScheduledFutureTask.deadlineNanos(SCHEDULE_PURGE_INTERVAL), -SCHEDULE_PURGE_INTERVAL));

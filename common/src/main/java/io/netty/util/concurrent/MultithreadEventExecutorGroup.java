@@ -29,14 +29,16 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 
 /**
- * //TODO:核心的多线程task处理执行引擎
+ * 核心的多线程task处理执行引擎
  */
 public abstract class MultithreadEventExecutorGroup extends AbstractEventExecutorGroup {
 
-    private final EventExecutor[] children;  //event执行器组
+    private final EventExecutor[] children;  //event_loop数组，真正处理task的线程
+
+    //主要用于辅助在从children数组中取出一个event_executor时计算children数组的索引，本质是一个轮询算法
     private final AtomicInteger childIndex = new AtomicInteger();
-    private final AtomicInteger terminatedChildren = new AtomicInteger();
-    private final Promise<?> terminationFuture = new DefaultPromise(GlobalEventExecutor.INSTANCE);
+    private final AtomicInteger terminatedChildren = new AtomicInteger();  //TODO:还弄清楚这个成员变量的含义
+    private final Promise<?> terminationFuture = new DefaultPromise(GlobalEventExecutor.INSTANCE);  //TODO:还弄清楚这个成员变量的含义
 
     /**
      * Create a new instance.
@@ -45,8 +47,8 @@ public abstract class MultithreadEventExecutorGroup extends AbstractEventExecuto
      * @param threadFactory     the ThreadFactory to use, or {@code null} if the default should be used.
      * @param args              arguments which will passed to each {@link #newChild(ThreadFactory, Object...)} call
      */
-    //TODO:对于这个构造函数，如果初始化执行引擎，需要重点理解
     protected MultithreadEventExecutorGroup(int nThreads, ThreadFactory threadFactory, Object... args) {
+        //参数检查
         if (nThreads <= 0) {
             throw new IllegalArgumentException(String.format("nThreads: %d (expected: > 0)", nThreads));
         }
@@ -54,7 +56,9 @@ public abstract class MultithreadEventExecutorGroup extends AbstractEventExecuto
         if (threadFactory == null) {
             threadFactory = newDefaultThreadFactory();
         }
-        //初始化EventExecutor数组，每一个数组元素代表的是SingleThreadEventExecutor实例
+
+
+        //初始化EventExecutor数组，每一个数组元素代表的是SingleThreadEventExecutor实例，数组长度为传入的参数
         children = new SingleThreadEventExecutor[nThreads];
 
 
@@ -62,7 +66,7 @@ public abstract class MultithreadEventExecutorGroup extends AbstractEventExecuto
             //success主要用来标示children的每一个元素即SingleThreadEventExecutor的子类实例是否创建成功
             boolean success = false;
             try {
-                //newChild是一个抽象方法，交给子类实现
+                //newChild是一个抽象方法，交给子类实现，我们一般使用Nio，那么此处实现应该看类NioEventLoopGroup
                 children[i] = newChild(threadFactory, args);
                 //子线程全部初始化完成后，success标示为成功
                 success = true;
@@ -78,7 +82,7 @@ public abstract class MultithreadEventExecutorGroup extends AbstractEventExecuto
                         children[j].shutdownGracefully();
                     }
 
-                    //
+
                     for (int j = 0; j < i; j ++) {
                         EventExecutor e = children[j];
                         try {
@@ -94,16 +98,21 @@ public abstract class MultithreadEventExecutorGroup extends AbstractEventExecuto
             }
         }
 
-
+        //todo：下面这两段还没完全看懂
+        //创建一个event_loop终止时的一个监听器terminationListener
         final FutureListener<Object> terminationListener = new FutureListener<Object>() {
             @Override
             public void operationComplete(Future<Object> future) throws Exception {
+                //每次终止时terminatedChildren进行+1，并对比终止的线程数与初始化时线程数的长度
                 if (terminatedChildren.incrementAndGet() == children.length) {
+                    //当终止的线程数与初始化时线程数的长度相时，调用DefaultPromise(GlobalEventExecutor.INSTANCE)的setSuccess(null)方法
+                    //要弄清楚setSuccess(null)这个方法的含义
                     terminationFuture.setSuccess(null);
                 }
             }
         };
 
+        //将上面的terminationListener添加到children数组中的每一个event_loop执行器里面
         for (EventExecutor e: children) {
             e.terminationFuture().addListener(terminationListener);
         }
@@ -115,6 +124,14 @@ public abstract class MultithreadEventExecutorGroup extends AbstractEventExecuto
         return new DefaultThreadFactory(getClass());
     }
 
+
+    /**
+     *重点方法，group中每调用一次next()方法就会从EventExecutor组children数组
+     * 中挑选出一个EventExecutor来处理ServerSocket accpet的client socket,处理过程有：
+     * 当ServerSocket accpet链接后，将产生的对应的Socket注册到next()方法取出的事件循环即EventExecutor的子类。
+     * 取出的算法为：
+     * 以轮询的方式Math.abs(childIndex.getAndIncrement() % children.length)算出children数组的一个索引
+     */
     @Override
     public EventExecutor next() {
         return children[Math.abs(childIndex.getAndIncrement() % children.length)];
@@ -218,4 +235,8 @@ public abstract class MultithreadEventExecutorGroup extends AbstractEventExecuto
         }
         return isTerminated();
     }
+
+
 }
+
+

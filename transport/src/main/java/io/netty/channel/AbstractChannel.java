@@ -53,6 +53,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
 
     private MessageSizeEstimator.Handle estimatorHandle;
 
+    //如果当前Channel是一个client对应的SocketChannel，那么这个parent代表的是产生这个SocketChannel对应的ServerSocketChannel
     private final Channel parent;
     private final long hashCode = ThreadLocalRandom.current().nextLong();
     private final Unsafe unsafe;
@@ -193,6 +194,8 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
         return this;
     }
 
+
+    //实际调用的是pipline的bind方法
     @Override
     public ChannelFuture bind(SocketAddress localAddress, ChannelPromise promise) {
         return pipeline.bind(localAddress, promise);
@@ -400,6 +403,8 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
         //todo:将channel实例注册到EventLoop核心方法
         @Override
         public final void register(EventLoop eventLoop, final ChannelPromise promise) {
+
+            //参数检查
             if (eventLoop == null) {
                 throw new NullPointerException("eventLoop");
             }
@@ -446,8 +451,12 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                 doRegister();
                 registered = true;
                 promise.setSuccess();
+
+
+                //触发“ChannelRegistered”事件
                 pipeline.fireChannelRegistered();
                 if (isActive()) {
+                    //触发“fireChannelActive”事件
                     pipeline.fireChannelActive();
                 }
             } catch (Throwable t) {

@@ -320,8 +320,10 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         }
 
 
-        //
+
         final ChannelPromise promise;
+
+        //register成功后，ServerSocket开始bind端口
         if (regFuture.isDone()) {
             promise = channel.newPromise();
             doBind0(regFuture, channel, localAddress, promise);
@@ -361,8 +363,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         }
 
 
-        //将channel注册到事件循环
-        //todo:这个注册的过程需要好好仔细理解
+        //将ServerSocketchannel注册到事件循环
         ChannelFuture regFuture = group().register(channel);
         if (regFuture.cause() != null) {
             if (channel.isRegistered()) {
@@ -387,6 +388,8 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
     //子类ServerBootstrap实现该方法
     abstract void init(Channel channel) throws Exception;
 
+
+
     private static void doBind0(
             final ChannelFuture regFuture, final Channel channel,
             final SocketAddress localAddress, final ChannelPromise promise) {
@@ -397,6 +400,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
             @Override
             public void run() {
                 if (regFuture.isSuccess()) {
+                    //调用的是Channel的bind方法
                     channel.bind(localAddress, promise).addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
                 } else {
                     promise.setFailure(regFuture.cause());

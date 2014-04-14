@@ -94,6 +94,8 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
 
         @Override
         public void read() {
+
+            //得到配置信息
             final ChannelConfig config = config();
             final ChannelPipeline pipeline = pipeline();
             final ByteBufAllocator allocator = config.getAllocator();
@@ -123,6 +125,7 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
                         break;
                     }
 
+                    //触发fireChannelRead事件
                     pipeline.fireChannelRead(byteBuf);
                     byteBuf = null;
 

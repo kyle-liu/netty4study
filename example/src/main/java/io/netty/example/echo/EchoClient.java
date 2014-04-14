@@ -72,6 +72,9 @@ public class EchoClient {
 
     public static void main(String[] args) throws Exception {
         // Print usage if no argument is specified.
+        args =new String[2];
+        args[0] = "localhost";
+        args[1]= "8080";
         if (args.length < 2 || args.length > 3) {
             System.err.println(
                     "Usage: " + EchoClient.class.getSimpleName() +

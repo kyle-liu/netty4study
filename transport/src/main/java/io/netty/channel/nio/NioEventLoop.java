@@ -56,9 +56,8 @@ public final class NioEventLoop extends SingleThreadEventLoop {
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(NioEventLoop.class);
 
     private static final int CLEANUP_INTERVAL = 256; // XXX Hard-coded value, but won't need customization.
-
     private static final boolean DISABLE_KEYSET_OPTIMIZATION =
-            SystemPropertyUtil.getBoolean("io.netty.noKeySetOptimization", false);
+            SystemPropertyUtil.getBoolean("io.netty.noKeySetOptimization", false);  //是否禁用netty对KeySet优化,默认值为false
 
     private static final int MIN_PREMATURE_SELECTOR_RETURNS = 3;
     private static final int SELECTOR_AUTO_REBUILD_THRESHOLD;
@@ -116,7 +115,9 @@ public final class NioEventLoop extends SingleThreadEventLoop {
     private boolean needsToSelectAgain;
 
     NioEventLoop(NioEventLoopGroup parent, ThreadFactory threadFactory, SelectorProvider selectorProvider) {
+        //调用父类的构造函数
         super(parent, threadFactory, false);
+        //参数检查
         if (selectorProvider == null) {
             throw new NullPointerException("selectorProvider");
         }
@@ -132,10 +133,13 @@ public final class NioEventLoop extends SingleThreadEventLoop {
             throw new ChannelException("failed to open a new selector", e);
         }
 
+        //如果禁用netty KeySet优化开启，那么就直接返回selector
         if (DISABLE_KEYSET_OPTIMIZATION) {
             return selector;
         }
 
+
+        //----以下代码是通过反射将selector对象的selectedKeys属性和publicSelectedKeys属性替换成netty自己实现的SelectedSelectionKeySet对象----//
         try {
             SelectedSelectionKeySet selectedKeySet = new SelectedSelectionKeySet();
 
@@ -155,14 +159,14 @@ public final class NioEventLoop extends SingleThreadEventLoop {
 
             //通过反射拿到selector class的selectedKeys Field对象
             Field selectedKeysField = selectorImplClass.getDeclaredField("selectedKeys");
-             //通过反射拿到selector class的publicSelectedKeys Field对象
+            //通过反射拿到selector class的publicSelectedKeys Field对象
             Field publicSelectedKeysField = selectorImplClass.getDeclaredField("publicSelectedKeys");
 
             //设置这两个属性可以访问
             selectedKeysField.setAccessible(true);
             publicSelectedKeysField.setAccessible(true);
 
-            //TODO:重点代码：通过反射将selector对象的selectedKeys属性和publicSelectedKeys属性替换成selectedKeySet对象
+            //通过反射将selector对象的selectedKeys属性和publicSelectedKeys属性替换成selectedKeySet对象
             //那么以后就可以直接从selectedKeySet中获取selector对象中所有的selectedKeys和publicSelectedKeys属性
             selectedKeysField.set(selector, selectedKeySet);
             publicSelectedKeysField.set(selector, selectedKeySet);
@@ -264,9 +268,9 @@ public final class NioEventLoop extends SingleThreadEventLoop {
 
         // Register all channels to the new Selector.
         int nChannels = 0;
-        for (;;) {
+        for (; ; ) {
             try {
-                for (SelectionKey key: oldSelector.keys()) {
+                for (SelectionKey key : oldSelector.keys()) {
                     Object a = key.attachment();
                     try {
                         if (key.channel().keyFor(newSelector) != null) {
@@ -276,7 +280,7 @@ public final class NioEventLoop extends SingleThreadEventLoop {
                         int interestOps = key.interestOps();
                         key.cancel();
                         key.channel().register(newSelector, interestOps, a);
-                        nChannels ++;
+                        nChannels++;
                     } catch (Exception e) {
                         logger.warn("Failed to re-register a Channel to the new Selector.", e);
                         if (a instanceof AbstractNioChannel) {
@@ -312,11 +316,12 @@ public final class NioEventLoop extends SingleThreadEventLoop {
     }
 
     /**
-     * 执行引擎真正执行任务的方法，由该子类覆盖
+     * 核心的
      */
     @Override
     protected void run() {
-        for (;;) {
+        for (; ; ) {
+            //得到旧值，并给wakenUp复制为false
             oldWakenUp = wakenUp.getAndSet(false);
             try {
                 if (hasTasks()) {
@@ -362,9 +367,9 @@ public final class NioEventLoop extends SingleThreadEventLoop {
                 final long ioStartTime = System.nanoTime();
                 needsToSelectAgain = false;
 
-                //判断selectedKeys是否获取到
+                //selectedKeys不为null，说明在构造函数中调用openSelector()方法进行初始化selector时，使用的是进行优化后的SelectKeySet
+                //默认情况下都是使用的是优化后的SelectKeySet，所这里可以先着重看processSelectedKeysOptimized()方法的实现
                 if (selectedKeys != null) {
-
                     processSelectedKeysOptimized(selectedKeys.flip());
                 } else {
                     processSelectedKeysPlain(selector.selectedKeys());
@@ -405,7 +410,7 @@ public final class NioEventLoop extends SingleThreadEventLoop {
 
     void cancel(SelectionKey key) {
         key.cancel();
-        cancelledKeys ++;
+        cancelledKeys++;
         if (cancelledKeys >= CLEANUP_INTERVAL) {
             cancelledKeys = 0;
             needsToSelectAgain = true;
@@ -430,7 +435,7 @@ public final class NioEventLoop extends SingleThreadEventLoop {
         }
 
         Iterator<SelectionKey> i = selectedKeys.iterator();
-        for (;;) {
+        for (; ; ) {
             final SelectionKey k = i.next();
             final Object a = k.attachment();
             i.remove();
@@ -462,14 +467,13 @@ public final class NioEventLoop extends SingleThreadEventLoop {
     }
 
     private void processSelectedKeysOptimized(SelectionKey[] selectedKeys) {
-        for (int i = 0;; i ++) {
+        for (int i = 0; ; i++) {
             final SelectionKey k = selectedKeys[i];
             if (k == null) {
                 break;
             }
 
             final Object a = k.attachment();
-
             if (a instanceof AbstractNioChannel) {
                 processSelectedKey(k, (AbstractNioChannel) a);
             } else {
@@ -541,15 +545,15 @@ public final class NioEventLoop extends SingleThreadEventLoop {
             state = 2;
         } finally {
             switch (state) {
-            case 0:
-                k.cancel();
-                invokeChannelUnregistered(task, k, null);
-                break;
-            case 1:
-                if (!k.isValid()) { // Cancelled by channelReady()
+                case 0:
+                    k.cancel();
                     invokeChannelUnregistered(task, k, null);
-                }
-                break;
+                    break;
+                case 1:
+                    if (!k.isValid()) { // Cancelled by channelReady()
+                        invokeChannelUnregistered(task, k, null);
+                    }
+                    break;
             }
         }
     }
@@ -558,7 +562,7 @@ public final class NioEventLoop extends SingleThreadEventLoop {
         selectAgain();
         Set<SelectionKey> keys = selector.keys();
         Collection<AbstractNioChannel> channels = new ArrayList<AbstractNioChannel>(keys.size());
-        for (SelectionKey k: keys) {
+        for (SelectionKey k : keys) {
             Object a = k.attachment();
             if (a instanceof AbstractNioChannel) {
                 channels.add((AbstractNioChannel) a);
@@ -570,7 +574,7 @@ public final class NioEventLoop extends SingleThreadEventLoop {
             }
         }
 
-        for (AbstractNioChannel ch: channels) {
+        for (AbstractNioChannel ch : channels) {
             ch.unsafe().close(ch.unsafe().voidPromise());
         }
     }
@@ -583,8 +587,18 @@ public final class NioEventLoop extends SingleThreadEventLoop {
         }
     }
 
+
+    //唤醒阻塞在selector.select()方法上的线程
     @Override
     protected void wakeup(boolean inEventLoop) {
+        /**
+         * 1.
+         * 2.wakenUp.compareAndSet(false, true)，如果当前值 == 预期值，则以原子方式将该值设置为给定的更新值，即：
+         * 这里如果wakenUp ==false，那么wakenUp将赋为true.
+         * wakenUp.compareAndSet如果返回值为true: 那代表当前值 == 预期值
+         * 如果返回值为false,则代表当前值 != 预期值
+         *
+         */
         if (!inEventLoop && wakenUp.compareAndSet(false, true)) {
             selector.wakeup();
         }
@@ -607,7 +621,7 @@ public final class NioEventLoop extends SingleThreadEventLoop {
             int selectCnt = 0;
             long currentTimeNanos = System.nanoTime();
             long selectDeadLineNanos = currentTimeNanos + delayNanos(currentTimeNanos);
-            for (;;) {
+            for (; ; ) {
                 long timeoutMillis = (selectDeadLineNanos - currentTimeNanos + 500000L) / 1000000L;
                 if (timeoutMillis <= 0) {
                     if (selectCnt == 0) {
@@ -618,7 +632,7 @@ public final class NioEventLoop extends SingleThreadEventLoop {
                 }
 
                 int selectedKeys = selector.select(timeoutMillis);
-                selectCnt ++;
+                selectCnt++;
 
                 if (selectedKeys != 0 || oldWakenUp || wakenUp.get() || hasTasks()) {
                     // Selected something,

@@ -31,8 +31,8 @@ final class DefaultChannelHandlerContext extends DefaultAttributeMap implements 
     volatile DefaultChannelHandlerContext next; //指向后面一个handlercontext
     volatile DefaultChannelHandlerContext prev; //指向前面一个handlercontext
 
-    private final boolean inbound;
-    private final boolean outbound;
+    private final boolean inbound;  //标示当前DefaultChannelHandlerContext所封装的handler是否是一个inbound
+    private final boolean outbound; //标示当前DefaultChannelHandlerContext所封装的handler是否是一个outbound
     private final AbstractChannel channel;  //所属的channel
     //所属的pipline,pipline中把所有的DefaultChannelHandlerContext组成了一个链表
     private final DefaultChannelPipeline pipeline;
@@ -55,6 +55,8 @@ final class DefaultChannelHandlerContext extends DefaultAttributeMap implements 
     DefaultChannelHandlerContext(DefaultChannelPipeline pipeline, EventExecutorGroup group, String name,
             ChannelHandler handler) {
 
+
+        //参数检查
         if (name == null) {
             throw new NullPointerException("name");
         }
@@ -67,6 +69,8 @@ final class DefaultChannelHandlerContext extends DefaultAttributeMap implements 
         this.name = name;
         this.handler = handler;
 
+
+        //todo:这里的group赋值过程的代码需要好好看看
         if (group != null) {
             // Pin one of the child executors once and remember it so that the same child executor
             // is used to fire events for the same channel.
@@ -460,6 +464,7 @@ final class DefaultChannelHandlerContext extends DefaultAttributeMap implements 
         }
         validatePromise(promise, false);
 
+        //从tail ---> head找Outbound执行
         final DefaultChannelHandlerContext next = findContextOutbound();
         EventExecutor executor = next.executor();
         if (executor.inEventLoop()) {
@@ -615,6 +620,8 @@ final class DefaultChannelHandlerContext extends DefaultAttributeMap implements 
             notifyOutboundHandlerException(t, promise);
         }
     }
+
+
 
     @Override
     public ChannelHandlerContext read() {

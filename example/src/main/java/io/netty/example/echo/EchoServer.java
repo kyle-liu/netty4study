@@ -50,7 +50,7 @@ public class EchoServer {
              .childHandler(new ChannelInitializer<SocketChannel>() {
                  @Override
                  public void initChannel(SocketChannel ch) throws Exception {
-                     ch.pipeline().addLast(
+                     ch.pipeline().addLast("echo",
                              //new LoggingHandler(LogLevel.INFO),
                              new EchoServerHandler());
                  }

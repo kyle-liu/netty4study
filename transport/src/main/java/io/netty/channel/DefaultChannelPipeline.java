@@ -68,7 +68,7 @@ final class DefaultChannelPipeline implements ChannelPipeline {
     private final Map<String, DefaultChannelHandlerContext> name2ctx =
         new HashMap<String, DefaultChannelHandlerContext>(4); //key :handler的名字  value:ChannelHandlerContext
 
-    //TODO:还没有弄懂这个ma的作用
+    //TODO:还没有弄懂这个map的作用
     final Map<EventExecutorGroup, EventExecutor> childExecutors =
             new IdentityHashMap<EventExecutorGroup, EventExecutor>();
 
@@ -103,8 +103,11 @@ final class DefaultChannelPipeline implements ChannelPipeline {
     @Override
     public ChannelPipeline addFirst(EventExecutorGroup group, final String name, ChannelHandler handler) {
         synchronized (this) {
+            //检查是否已添加同名的handler
             checkDuplicateName(name);
+            //根据pipline,group,name,handler构建出一个新的DefaultChannelHandlerContext
             DefaultChannelHandlerContext newCtx = new DefaultChannelHandlerContext(this, group, name, handler);
+            //添加这个newCtx到pipline:通过操作链表，将该handlerContext添加到head的后面
             addFirst0(name, newCtx);
         }
 
@@ -112,8 +115,12 @@ final class DefaultChannelPipeline implements ChannelPipeline {
     }
 
     private void addFirst0(String name, DefaultChannelHandlerContext newCtx) {
+        /**
+         * 检查newCtx中的handler是否被重复添加：
+         * 对于一个没有加Shareble的hanlder类，如果每次都是new出来不同的对象，是可以重复添加到
+         * 同一个pipline的，但是如果是同一个对象实例，是不允许重复添加到同一个pipline的
+         */
         checkMultiplicity(newCtx);
-
         DefaultChannelHandlerContext nextCtx = head.next;
         newCtx.prev = head;
         newCtx.next = nextCtx;
@@ -209,6 +216,7 @@ final class DefaultChannelPipeline implements ChannelPipeline {
     }
 
     private void addAfter0(final String name, DefaultChannelHandlerContext ctx, DefaultChannelHandlerContext newCtx) {
+        //检查是否重名
         checkDuplicateName(name);
         checkMultiplicity(newCtx);
 
@@ -468,6 +476,12 @@ final class DefaultChannelPipeline implements ChannelPipeline {
         ChannelHandler handler = ctx.handler();
         if (handler instanceof ChannelHandlerAdapter) {
             ChannelHandlerAdapter h = (ChannelHandlerAdapter) handler;
+            /**
+             * 1.判断当前添加的ChannelHandlerContext的handler是否加了注解@Sharable
+             * 2.判断handler是否已经被添加过
+             * 如果没有添加@Sharable注解，又被添加过，那么将会抛出异常
+             * 如果加了@Sharable注解，那么这个handler可以被多次添加
+             */
             if (!h.isSharable() && h.added) {
                 throw new ChannelPipelineException(
                         h.getClass().getName() +
@@ -815,6 +829,8 @@ final class DefaultChannelPipeline implements ChannelPipeline {
         return this;
     }
 
+
+
     @Override
     public ChannelFuture bind(SocketAddress localAddress) {
         return tail.bind(localAddress);
@@ -851,6 +867,13 @@ final class DefaultChannelPipeline implements ChannelPipeline {
         return this;
     }
 
+
+    /**
+     *所有的与ChannelOutboundHandler方法同名的方法，pinpline的调用链接都是tail ---> head
+     * TODO:think: 既然在Outbound操作上，pipline要作为接口的门面，那为什么pipline不直接去继承ChannelHandlerContext相关接口
+     */
+
+    //bind事件是从tail(是一个Inbound) --->head(是一个Outbound)触发
     @Override
     public ChannelFuture bind(SocketAddress localAddress, ChannelPromise promise) {
         return tail.bind(localAddress, promise);
@@ -906,6 +929,9 @@ final class DefaultChannelPipeline implements ChannelPipeline {
     public ChannelFuture writeAndFlush(Object msg) {
         return tail.writeAndFlush(msg);
     }
+
+
+
 
     private void checkDuplicateName(String name) {
         if (name2ctx.containsKey(name)) {

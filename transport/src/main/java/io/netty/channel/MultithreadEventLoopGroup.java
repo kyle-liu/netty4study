@@ -31,7 +31,7 @@ public abstract class MultithreadEventLoopGroup extends MultithreadEventExecutor
 
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(MultithreadEventLoopGroup.class);
 
-    private static final int DEFAULT_EVENT_LOOP_THREADS;  //默认线程数
+    private static final int DEFAULT_EVENT_LOOP_THREADS;  //默认线程数 = 可用的CPU核数 *  2
 
     //初始化默认的线程数=当前系统可用CPU核数*2
     static {
@@ -48,6 +48,8 @@ public abstract class MultithreadEventLoopGroup extends MultithreadEventExecutor
      * @see {@link MultithreadEventExecutorGroup#MultithreadEventExecutorGroup(int, ThreadFactory, Object...)}
      */
     protected MultithreadEventLoopGroup(int nThreads, ThreadFactory threadFactory, Object... args) {
+        //判断参数线程数nThreads如果等于0则给定默认的线程数为DEFAULT_EVENT_LOOP_THREADS，DEFAULT_EVENT_LOOP_THREADS是静态的
+        //在静态初始化的时候值 = CPU core num * 2
         super(nThreads == 0? DEFAULT_EVENT_LOOP_THREADS : nThreads, threadFactory, args);
     }
 

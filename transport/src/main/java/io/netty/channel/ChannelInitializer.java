@@ -46,6 +46,11 @@ import io.netty.util.internal.logging.InternalLoggerFactory;
  *
  * @param <C>   A sub-type of {@link Channel}
  */
+
+/**
+ *主要用于在channelRegister时，初始化pipline
+ * initChannel在channel触发channelRegistered事件的时候被调用，然后马上从pipeline中删除
+ */
 @Sharable
 public abstract class ChannelInitializer<C extends Channel> extends ChannelInboundHandlerAdapter {
 
@@ -74,7 +79,7 @@ public abstract class ChannelInitializer<C extends Channel> extends ChannelInbou
             //从pipline删除这个handler
             pipeline.remove(this);
 
-            //todo:为什么要调用这个方法
+            //链式触发fireChannelRegistered事件
             ctx.fireChannelRegistered();
             success = true;
         } catch (Throwable t) {
