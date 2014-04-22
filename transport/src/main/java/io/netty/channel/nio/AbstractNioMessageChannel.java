@@ -56,6 +56,7 @@ public abstract class AbstractNioMessageChannel extends AbstractNioChannel {
                 key.interestOps(interestOps & ~readInterestOp);
             }
         }
+
         @Override
         public void read() {
             assert eventLoop().inEventLoop();
@@ -70,8 +71,16 @@ public abstract class AbstractNioMessageChannel extends AbstractNioChannel {
             boolean closed = false;
             Throwable exception = null;
             try {
-                for (;;) {
+                for (; ; ) {
+                    /**
+                     * 这里取名为doReadMessages，对于实现该方法的子类：NioServerSocketChannel对于该方法的实现是：
+                     * accpet客户端的请求，并把产生的对应的SocketChannel通过NioSocketChannel封装起来，丢入穿入的参数readBuf
+                     doReadMessages返回值：
+                     0:读取失败
+                     1:读取正常
+                     */
                     int localRead = doReadMessages(readBuf);
+
                     if (localRead == 0) {
                         break;
                     }
@@ -89,8 +98,18 @@ public abstract class AbstractNioMessageChannel extends AbstractNioChannel {
             }
 
             int size = readBuf.size();
-            //触发fireChannelRead事件
-            for (int i = 0; i < size; i ++) {
+            /**
+             * readBuf这个List里面，放的全部是当前Eventloop注册的Selector监听的ServerChannel accpet客户端的
+             * 请求，产生的NioSocketChannel对象
+             *  循环触发fireChannelRead事件
+             */
+
+            for (int i = 0; i < size; i++) {
+                /**
+                 * fireChannelRead方法参数，传入的是NioSocketChannel对象,该NioSocketChannel对象封装着
+                 * 1.accpet对应的java nio的ServerSocketChannel
+                 * 2.accpet后产生的java nio的SocketChannel
+                 */
                 pipeline.fireChannelRead(readBuf.get(i));
             }
             readBuf.clear();
@@ -119,7 +138,7 @@ public abstract class AbstractNioMessageChannel extends AbstractNioChannel {
         final SelectionKey key = selectionKey();
         final int interestOps = key.interestOps();
 
-        for (;;) {
+        for (; ; ) {
             Object msg = in.current();
             if (msg == null) {
                 // Wrote all messages.
@@ -130,7 +149,7 @@ public abstract class AbstractNioMessageChannel extends AbstractNioChannel {
             }
 
             boolean done = false;
-            for (int i = config().getWriteSpinCount() - 1; i >= 0; i --) {
+            for (int i = config().getWriteSpinCount() - 1; i >= 0; i--) {
                 if (doWriteMessage(msg, in)) {
                     done = true;
                     break;

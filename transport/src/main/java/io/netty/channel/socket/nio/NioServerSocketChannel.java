@@ -41,6 +41,7 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel
                              implements io.netty.channel.socket.ServerSocketChannel {
 
     private static final ChannelMetadata METADATA = new ChannelMetadata(false);
+    private final ServerSocketChannelConfig config;
 
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(NioServerSocketChannel.class);
 
@@ -56,7 +57,7 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel
         }
     }
 
-    private final ServerSocketChannelConfig config;
+
 
     /**
      * Create a new instance
@@ -120,12 +121,13 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel
     //todo:核心的NioServerSokcetChannel  accept客户端连接的方法
     @Override
     protected int doReadMessages(List<Object> buf) throws Exception {
+        //1.accept客户端的连接,并产生对应的一个cLient SocketChannel
         SocketChannel ch = javaChannel().accept();
         try {
             if (ch != null) {
                 /**
-                 * 1.accept客户端的连接,并产生对应的一个cLient SocketChannel
                  * 2.创建一个NioSocketChannel，通过构造函数，把对应的ServerSocketChannel和产生的新的SocketChannel传入进去
+                 * 同时把产生的(new NioSocketChannel(this, ch)放入到List<Object> buf
                  */
                 buf.add(new NioSocketChannel(this, ch));
                 return 1;

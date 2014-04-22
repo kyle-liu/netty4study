@@ -41,7 +41,6 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * {@link Bootstrap} sub-class which allows easy bootstrap of {@link ServerChannel}
- *
  */
 public final class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerChannel> {
 
@@ -50,9 +49,11 @@ public final class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, Se
     private final Map<ChannelOption<?>, Object> childOptions = new LinkedHashMap<ChannelOption<?>, Object>();
     private final Map<AttributeKey<?>, Object> childAttrs = new LinkedHashMap<AttributeKey<?>, Object>();
     private volatile EventLoopGroup childGroup;
-    private volatile ChannelHandler childHandler; ////TODO:要理解这个子类handler的作用，以及和父类handler的区别
 
-    public ServerBootstrap() { }
+    private volatile ChannelHandler childHandler; //用户添加的业务handler
+
+    public ServerBootstrap() {
+    }
 
     private ServerBootstrap(ServerBootstrap bootstrap) {
         super(bootstrap);
@@ -69,6 +70,7 @@ public final class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, Se
     /**
      * Specify the {@link EventLoopGroup} which is used for the parent (acceptor) and the child (client).
      */
+    //如果只指定一个EventLoopGroup，那么group和childGroup共用一个group
     @Override
     public ServerBootstrap group(EventLoopGroup group) {
         return group(group, group);
@@ -149,20 +151,21 @@ public final class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, Se
 
 
     /**
-     *初始化channel
+     * 初始化channel
      */
     @Override
     void init(Channel channel) throws Exception {
-     final Map<ChannelOption<?>, Object> options = options();
+
+        //将传入Bootstrap
+        final Map<ChannelOption<?>, Object> options = options();
         synchronized (options) {
             channel.config().setOptions(options);
         }
 
-
         final Map<AttributeKey<?>, Object> attrs = attrs();
 
         synchronized (attrs) {
-            for (Entry<AttributeKey<?>, Object> e: attrs.entrySet()) {
+            for (Entry<AttributeKey<?>, Object> e : attrs.entrySet()) {
                 @SuppressWarnings("unchecked")
                 AttributeKey<Object> key = (AttributeKey<Object>) e.getKey();
                 channel.attr(key).set(e.getValue());
@@ -170,21 +173,22 @@ public final class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, Se
         }
 
         //将AbstractBootstrap的Hanlder添加到NioServerketChannel
-       /** b.group(bossGroup, workerGroup)
-                    .channel(NioServerSocketChannel.class)
-                    .option(ChannelOption.SO_BACKLOG, 100)
-                    .handler(new LoggingHandler(LogLevel.INFO))
-                    .childHandler(new ChannelInitializer<SocketChannel>() {
-                        @Override
-                        public void initChannel(SocketChannel ch) throws Exception {
-                            ch.pipeline().addLast(
-                                    //new LoggingHandler(LogLevel.INFO),
-                                    new EchoServerHandler());
-                        }
-                    });
+        /** b.group(bossGroup, workerGroup)
+         .channel(NioServerSocketChannel.class)
+         .option(ChannelOption.SO_BACKLOG, 100)
+         .handler(new LoggingHandler(LogLevel.INFO))
+         .childHandler(new ChannelInitializer<SocketChannel>() {
+        @Override public void initChannel(SocketChannel ch) throws Exception {
+        ch.pipeline().addLast(
+        //new LoggingHandler(LogLevel.INFO),
+        new EchoServerHandler());
+        }
+        });
          就是把handler(new LoggingHandler(LogLevel.INFO))这个handler添加到NioServerketChannel的pipline
-        **/
+         **/
         ChannelPipeline p = channel.pipeline();
+
+
         if (handler() != null) {
             p.addLast(handler());
         }
@@ -200,7 +204,10 @@ public final class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, Se
             currentChildAttrs = childAttrs.entrySet().toArray(newAttrArray(childAttrs.size()));
         }
 
-        //
+        /**
+         * ChannelInitializer是一个特殊的ChannelInboundHandler,当channelRegistered事件触发后，
+         * 会调用initChannel方法，调完后，这个handler会从piplne中删除
+         */
         p.addLast(new ChannelInitializer<Channel>() {
             @Override
             public void initChannel(Channel ch) throws Exception {
@@ -235,7 +242,9 @@ public final class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, Se
 
 
     /**
-     *
+     * todo:core
+     * ServerBootstrapAcceptor主要的作用是当有client连接上Server的时，pipline触发channelRead
+     * 事件，然后会给pipline添加用户自己的handler
      */
     private static class ServerBootstrapAcceptor extends ChannelInboundHandlerAdapter {
 
@@ -256,17 +265,27 @@ public final class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, Se
 
 
         /**
+         * todo:注意理解这里：
+         * channelRead方法的触发时机：
+         * Server已经bind端口成功，当有client连接上的时候，会通过pipline触发channelRead事件链
          *
-         *
-         **/
+         * @param ctx
+         * @param msg 在Nio中，是Server accpet客户端的connect连接后，产生的NioSocketChannel对象
+         */
         @Override
         @SuppressWarnings("unchecked")
         public void channelRead(ChannelHandlerContext ctx, Object msg) {
+
+            //cast msg对象，还原其类型，这个child表示的是Server accpet后与cLient之间的通道
             final Channel child = (Channel) msg;
 
+            //得到客户端channel的pipline,并将用户设置给ServerBootStrap childHandler的属性给添加到child的pipline中去
+            //这说明每一个client channel中pipline是独立的，且handler也是独立的
             child.pipeline().addLast(childHandler);
 
-            for (Entry<ChannelOption<?>, Object> e: childOptions) {
+
+            //对client channel进行参数设置
+            for (Entry<ChannelOption<?>, Object> e : childOptions) {
                 try {
                     if (!child.config().setOption((ChannelOption<Object>) e.getKey(), e.getValue())) {
                         logger.warn("Unknown channel option: " + e);
@@ -276,11 +295,18 @@ public final class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, Se
                 }
             }
 
-            for (Entry<AttributeKey<?>, Object> e: childAttrs) {
+            //对client channel进行属性设置
+            for (Entry<AttributeKey<?>, Object> e : childAttrs) {
                 child.attr((AttributeKey<Object>) e.getKey()).set(e.getValue());
             }
 
             try {
+
+                //todo: core
+                /**
+                 *使用childGroup这个eventloop_group处理client channel
+                 * 这里是在Server accpet产生client的Channel即child给注册到childGroup
+                 */
                 childGroup.register(child).addListener(new ChannelFutureListener() {
                     @Override
                     public void operationComplete(ChannelFuture future) throws Exception {
@@ -309,7 +335,7 @@ public final class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, Se
                 ctx.channel().eventLoop().schedule(new Runnable() {
                     @Override
                     public void run() {
-                       config.setAutoRead(true);
+                        config.setAutoRead(true);
                     }
                 }, 1, TimeUnit.SECONDS);
             }

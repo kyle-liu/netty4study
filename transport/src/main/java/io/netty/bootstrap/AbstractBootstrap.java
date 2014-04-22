@@ -45,17 +45,16 @@ import java.util.Map;
  */
 
 /**
- * //TODO: 核心的Bootstrap的抽象实现，大部分方法的实现都是在该抽象类
- * @param <B>
- * @param <C>
  */
 public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C extends Channel> implements Cloneable {
 
-    private volatile EventLoopGroup group; //
+    private volatile EventLoopGroup group; //该eventloopgroup主要用于处理子类ServerBootstrap accpet 客户端的连接
     private volatile ChannelFactory<? extends C> channelFactory;  //创建Channel工厂类
     private volatile SocketAddress localAddress; //端口地址
 
-    private final Map<ChannelOption<?>, Object> options = new LinkedHashMap<ChannelOption<?>, Object>();  //选参数的配置
+    //设定Channel相关配置参数的集合
+    private final Map<ChannelOption<?>, Object> options = new LinkedHashMap<ChannelOption<?>, Object>();
+
     private final Map<AttributeKey<?>, Object> attrs = new LinkedHashMap<AttributeKey<?>, Object>();
 
 
@@ -312,9 +311,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         //1.初始化channel并将初始化好的channel注册到事件循环
         final ChannelFuture regFuture = initAndRegister();
 
-
         final Channel channel = regFuture.channel();
-
         if (regFuture.cause() != null) {
             return regFuture;
         }
@@ -323,7 +320,11 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
 
         final ChannelPromise promise;
 
-        //register成功后，ServerSocket开始bind端口
+        /**
+         * 2.判断初始化且注册任务是否已经完成，如果已经完成，则调用bind端口方法
+         * 注意这里regFuture.isDone()方法，返回ture，只是标示任务是否已经完成，完成的情况可能有：
+         * 1.正常终止、2.异常、3.取消
+         */
         if (regFuture.isDone()) {
             promise = channel.newPromise();
             doBind0(regFuture, channel, localAddress, promise);
@@ -341,21 +342,19 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         return promise;
     }
 
-    /**
-     * //todo:构建ChannelFuture的核心方法
-     */
     final ChannelFuture initAndRegister() {
-        //1.新建并初始化channel对象
+        //1.通过反射创建netty的channel对象，netty的channel对象是对sun提供的原生态的NIO SelectableChannel的一个封装
         /**
          * 在这里因为本质this.channelFactory = new BootstrapChannelFactory(channelClass)
          * 同时BootstrapChannelFactory实例的newChannel()方法本质是，通过反射调用传入的参数
-         * channelClass来创建一个channel实例，Server端一般使用的是NioServerSocketChannel.class
+         * channelClass来创建一个channel实例，
+         * NioServer端一般使用的是NioServerSocketChannel
+         * NioClient端使用的NioSocketChannel
          */
-        //所以这个channel实例是NioServerSocketChannel实例
         final Channel channel = channelFactory().newChannel();
 
         try {
-            //初始化NioServerSocketChanne实例：对channel实例进行相关参数设置
+            //2.初始化Channel实例：对channel实例进行相关参数设置。这里调用的是对应子类的实现
             init(channel);
         } catch (Throwable t) {
             channel.unsafe().closeForcibly();
@@ -363,8 +362,21 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         }
 
 
-        //将ServerSocketchannel注册到事件循环
+        /**
+         * 3.将Channel注册到事件循环组中：
+         * 注意AbstractBootstrap和Bootstrap、ServerBootstrap这两个父子类，父类AbstractBootstrap有一个属性名是group的EventLoopGroup，
+         * 子类ServerBootstrap有一个属性名是childGroup的EventLoopGroup，
+         * 子类Bootstrap直接继承AbstractBootstrap，没有额外的EventLoopGroup属性.
+         * TODO:彻底理解group和childGroup的职责
+         * 注意这ServerBootstrap两个EventLoopGroup的职责：
+         * group:主要是Server对accpet事件的处理
+         * childGroup：主要是Server对write and read事件的处理
+         */
         ChannelFuture regFuture = group().register(channel);
+
+        //4.如果注册失败，regFuture.cause会返回失败的异常对象
+        //如果注册出现异常，并channel已经注册，那么关闭。如果没有注册，那么强行关闭
+        //TODO:这里要弄清楚channel.close()和channel.unsafe().closeForcibly()区别 ?
         if (regFuture.cause() != null) {
             if (channel.isRegistered()) {
                 channel.close();
@@ -396,11 +408,14 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
 
         // This method is invoked before channelRegistered() is triggered.  Give user handlers a chance to set up
         // the pipeline in its channelRegistered() implementation.
+
+           //判断注册事件是否成功，如果注册成功,则把bind任务丢到任务队列
            channel.eventLoop().execute(new Runnable() {
             @Override
             public void run() {
+                //channel注册到eventloop成功后，才开始调用Channel的bind方法
                 if (regFuture.isSuccess()) {
-                    //调用的是Channel的bind方法
+                    //调用Channel的bind方法
                     channel.bind(localAddress, promise).addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
                 } else {
                     promise.setFailure(regFuture.cause());

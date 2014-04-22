@@ -81,6 +81,18 @@ public abstract class SingleThreadEventExecutor extends AbstractEventExecutor {
 
     private final Semaphore threadLock = new Semaphore(0);
     private final Set<Runnable> shutdownHooks = new LinkedHashSet<Runnable>();
+    /**
+     * 标示在往任务队列中添加任务时，是否唤醒阻塞在select()上的线程
+     * false: 表示唤醒
+     * true: 标示不唤醒
+     * 为什么需要这个变量？
+     * 因为当通过eventloop的execute方法往任务队列添加任务时，就立马该eventloop的线程，该线程会执行
+     * eventloop的run方法，该方法基本的逻辑是:
+     * 任务队列如果有任务，就执行selectNow()，这是一个非阻塞方法，
+     * 而任务队列如果没有任务，就执行被包装后的select()方法，该方法是一个阻塞方法
+     * 所以这里在往eventloop中添加任务时，eventloop上的线程可能处于阻塞状态，那么被添加的任务可能会被
+     * 延迟执行，所以这里才需要唤醒
+     */
     private final boolean addTaskWakesUp;
 
     private long lastExecutionTime;
@@ -95,10 +107,10 @@ public abstract class SingleThreadEventExecutor extends AbstractEventExecutor {
     /**
      * Create a new instance
      *
-     * @param parent            the {@link EventExecutorGroup} which is the parent of this instance and belongs to it
-     * @param threadFactory     the {@link ThreadFactory} which will be used for the used {@link Thread}
-     * @param addTaskWakesUp    {@code true} if and only if invocation of {@link #addTask(Runnable)} will wake up the
-     *                          executor thread
+     * @param parent         the {@link EventExecutorGroup} which is the parent of this instance and belongs to it
+     * @param threadFactory  the {@link ThreadFactory} which will be used for the used {@link Thread}
+     * @param addTaskWakesUp {@code true} if and only if invocation of {@link #addTask(Runnable)} will wake up the
+     *                       executor thread
      */
     protected SingleThreadEventExecutor(
             EventExecutorGroup parent, ThreadFactory threadFactory, boolean addTaskWakesUp) {
@@ -378,6 +390,7 @@ public abstract class SingleThreadEventExecutor extends AbstractEventExecutor {
             return false;
         }
 
+        //
         final long deadline = ScheduledFutureTask.nanoTime() + timeoutNanos;
         long runTasks = 0;
         long lastExecutionTime;
@@ -745,7 +758,18 @@ public abstract class SingleThreadEventExecutor extends AbstractEventExecutor {
             }
         }
 
-        //todo:唤醒event_loop线程
+        /**
+         * 标示在往任务队列中添加任务时，是否唤醒阻塞在select()上的线程
+         * false: 表示唤醒
+         * true: 标示不唤醒
+         * 为什么需要这个变量？
+         * 因为当通过eventloop的execute方法往任务队列添加任务时，就立马该eventloop的线程，该线程会执行
+         * eventloop的run方法，该方法基本的逻辑是:
+         * 任务队列如果有任务，就执行selectNow()，这是一个非阻塞方法，
+         * 而任务队列如果没有任务，就执行被包装后的select()方法，该方法是一个阻塞方法
+         * 所以这里在往eventloop中添加任务时，eventloop上的线程可能处于阻塞状态，那么被添加的任务可能会被
+         * 延迟执行，所以这里才需要唤醒
+         */
         if (!addTaskWakesUp) {
             wakeup(inEventLoop);
         }

@@ -16,6 +16,7 @@
 package io.netty.channel;
 
 import static io.netty.channel.DefaultChannelPipeline.logger;
+
 import io.netty.buffer.ByteBufAllocator;
 import io.netty.util.DefaultAttributeMap;
 import io.netty.util.Recycler;
@@ -53,7 +54,7 @@ final class DefaultChannelHandlerContext extends DefaultAttributeMap implements 
     private Runnable invokeChannelWritableStateChangedTask;
 
     DefaultChannelHandlerContext(DefaultChannelPipeline pipeline, EventExecutorGroup group, String name,
-            ChannelHandler handler) {
+                                 ChannelHandler handler) {
 
 
         //参数检查
@@ -88,7 +89,9 @@ final class DefaultChannelHandlerContext extends DefaultAttributeMap implements 
         outbound = handler instanceof ChannelOutboundHandler;
     }
 
-    /** Invocation initiated by {@link DefaultChannelPipeline#teardownAll()}}. */
+    /**
+     * Invocation initiated by {@link DefaultChannelPipeline#teardownAll()}}.
+     */
     void teardown() {
         EventExecutor executor = executor();
         if (executor.inEventLoop()) {
@@ -148,7 +151,7 @@ final class DefaultChannelHandlerContext extends DefaultAttributeMap implements 
     }
 
 
-    //触发ChannelRegister事件
+    //触发ChannelRegister事件，按照从head ---> tail的顺序寻找inbonud，并依次触发
     @Override
     public ChannelHandlerContext fireChannelRegistered() {
         final DefaultChannelHandlerContext next = findContextInbound();
@@ -199,6 +202,7 @@ final class DefaultChannelHandlerContext extends DefaultAttributeMap implements 
         }
     }
 
+    //从head-->tail的顺序，寻找inbound并依次触发
     @Override
     public ChannelHandlerContext fireChannelActive() {
         //先找到当前ChannelHandlerContext的下一个ChannelHandlerContext
@@ -226,13 +230,13 @@ final class DefaultChannelHandlerContext extends DefaultAttributeMap implements 
     /**
      * 注意这里pipline里面的handler是如何链式调用的：
      * 1.pipline里面通过 DefaultChannelHandlerContext next，DefaultChannelHandlerContext prev这两个属性把add到pipline
-     *   的所有handler组装成一个双向链表
+     * 的所有handler组装成一个双向链表
      * 2.调用真正handler的channelActive方法，同时把当前DefaultChannelHandlerContext对象当做参数传入进去
      * 3.我们来看handler默认实现的channelActive方法：
-     *  @Override
-     *  public void channelActive(ChannelHandlerContext ctx) throws Exception {
-     *     ctx.fireChannelActive();
-     *    }
+     *
+     * @Override public void channelActive(ChannelHandlerContext ctx) throws Exception {
+     * ctx.fireChannelActive();
+     * }
      * 默认实现就是调用传入参数的ctx.fireChannelActive()方法，该方法又会重复
      * 4.如果在handler对应的方法里面不调用ctx.fireChannelActive();那么循环终止
      */
@@ -306,7 +310,7 @@ final class DefaultChannelHandlerContext extends DefaultAttributeMap implements 
             if (logger.isWarnEnabled()) {
                 logger.warn(
                         "An exception was thrown by a user handler's " +
-                        "exceptionCaught() method while handling the following exception:", cause);
+                                "exceptionCaught() method while handling the following exception:", cause);
             }
         }
     }
@@ -340,6 +344,10 @@ final class DefaultChannelHandlerContext extends DefaultAttributeMap implements 
         }
     }
 
+    /**
+     * @param msg 从源代码看，这个代表的是Server accpet后产生的netty封装的NioSocketChannel对象
+     * @return
+     */
     @Override
     public ChannelHandlerContext fireChannelRead(final Object msg) {
         if (msg == null) {
@@ -457,6 +465,8 @@ final class DefaultChannelHandlerContext extends DefaultAttributeMap implements 
         return deregister(newPromise());
     }
 
+
+    //bind事件是从tail(是一个Inbound) --->head(是一个Outbound),寻找Outbound并依次触发
     @Override
     public ChannelFuture bind(final SocketAddress localAddress, final ChannelPromise promise) {
         if (localAddress == null) {
@@ -622,7 +632,7 @@ final class DefaultChannelHandlerContext extends DefaultAttributeMap implements 
     }
 
 
-
+    //从tail --> head的顺序寻找outbound,并依次调用read方法
     @Override
     public ChannelHandlerContext read() {
         final DefaultChannelHandlerContext next = findContextOutbound();
@@ -848,7 +858,6 @@ final class DefaultChannelHandlerContext extends DefaultAttributeMap implements 
                     StringUtil.simpleClassName(AbstractChannel.CloseFuture.class) + " not allowed in a pipeline");
         }
     }
-
 
 
     private DefaultChannelHandlerContext findContextInbound() {

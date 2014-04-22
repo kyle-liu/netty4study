@@ -43,6 +43,7 @@ public abstract class AbstractNioChannel extends AbstractChannel {
     private static final InternalLogger logger =
             InternalLoggerFactory.getInstance(AbstractNioChannel.class);
 
+    //真正底层通信的java nio的Channel,它可能是一个ServerSocketChannel也可能是一个SocketChannel
     private final SelectableChannel ch;
     protected final int readInterestOp;
     private volatile SelectionKey selectionKey;
@@ -59,9 +60,9 @@ public abstract class AbstractNioChannel extends AbstractChannel {
     /**
      * Create a new instance
      *
-     * @param parent            the parent {@link Channel} by which this instance was created. May be {@code null}
-     * @param ch                the underlying {@link SelectableChannel} on which it operates
-     * @param readInterestOp    the ops to set to receive data from the {@link SelectableChannel}
+     * @param parent         the parent {@link Channel} by which this instance was created. May be {@code null}
+     * @param ch             the underlying {@link SelectableChannel} on which it operates
+     * @param readInterestOp the ops to set to receive data from the {@link SelectableChannel}
      */
     protected AbstractNioChannel(Channel parent, SelectableChannel ch, int readInterestOp) {
         super(parent);
@@ -289,15 +290,18 @@ public abstract class AbstractNioChannel extends AbstractChannel {
     }
 
 
-
     @Override
     protected void doRegister() throws Exception {
         boolean selected = false;
-        for (;;) {
+        for (; ; ) {
             try {
                 selectionKey = javaChannel().register(eventLoop().selector, 0, this);
                 return;
             } catch (CancelledKeyException e) {
+                /**
+                 * CancelledKeyException抛出的场景：
+                 * 当前Channel已经注册了给定的selector,但是相应个key却已经被取消了
+                 */
                 if (!selected) {
                     // Force the Selector to select now as the "canceled" SelectionKey may still be
                     // cached and not removed because no Select.select(..) operation was called yet.
@@ -317,6 +321,8 @@ public abstract class AbstractNioChannel extends AbstractChannel {
         eventLoop().cancel(selectionKey());
     }
 
+
+    //给Channel的selectionKey增加OP_READ
     @Override
     protected void doBeginRead() throws Exception {
         if (inputShutdown) {

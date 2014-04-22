@@ -26,6 +26,14 @@ import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
  */
 public class DefaultAttributeMap implements AttributeMap {
 
+    /**
+     * 基于反射的实用工具，可以对指定类的指定 volatile 字段进行原子更新。
+     * 该类用于原子数据结构，该结构中同一节点的几个引用字段都独立受原子更新控制
+     * AtomicReferenceFieldUpdater.newUpdater参数：
+     * 第一个：属性所属类的class
+     * 第二个:属性类的calss
+     * 第三个:属性名
+     */
     @SuppressWarnings("rawtypes")
     private static final AtomicReferenceFieldUpdater<DefaultAttributeMap, Map> updater =
             AtomicReferenceFieldUpdater.newUpdater(DefaultAttributeMap.class, Map.class, "map");
@@ -39,11 +47,25 @@ public class DefaultAttributeMap implements AttributeMap {
         Map<AttributeKey<?>, Attribute<?>> map = this.map;
         if (map == null) {
             // Not using ConcurrentHashMap due to high memory consumption.
+            /**
+             * IdentityHashMap:允许key值可以重复的map。在IdentityHashMap中，
+             * 判断两个键值k1和 k2相等的条件是 k1 == k2 。
+             * 在正常的Map 实现（如 HashMap）中，
+             * 当且仅当满足下列条件时才认为两个键 k1 和 k2 相等(不仅比较引用还比较属性值)：
+             * (k1==null ? k2==null : e1.equals(e2))。
+             */
             map = new IdentityHashMap<AttributeKey<?>, Attribute<?>>(2);
+            /**原子更新map的属性值：
+             * 如果当前值 == 预期值，则以原子方式将此更新器管理的给定对象的字段设置为给定的更新值
+             * 在这里：
+             * 如果当前对象的成员属性map等于null，那么给这个成员属性this.map 赋为新创建的对象map
+             * 否则给局部变量赋值map = this.map
+             */
             if (!updater.compareAndSet(this, null, map)) {
                 map = this.map;
             }
         }
+
 
         synchronized (map) {
             @SuppressWarnings("unchecked")

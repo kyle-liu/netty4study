@@ -25,9 +25,14 @@ import io.netty.util.concurrent.GenericFutureListener;
  * The default {@link ChannelPromise} implementation.  It is recommended to use {@link Channel#newPromise()} to create
  * a new {@link ChannelPromise} rather than calling the constructor explicitly.
  */
+
+/**
+ * ChannelPromise接口默认的实现。它推荐最好使用Channel的newPromise()方法来创建ChannelPromise对象，这样比直接调用构造函数来创建
+ * 对象更好。
+ */
 public class DefaultChannelPromise extends DefaultPromise<Void> implements ChannelPromise, FlushCheckpoint {
 
-    private final Channel channel;
+    private final Channel channel;  //该promise对应的Channel
     private long checkpoint;
 
     /**

@@ -226,6 +226,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
         return pipeline.deregister(promise);
     }
 
+
     @Override
     public Channel read() {
         pipeline.read();
@@ -452,11 +453,10 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                 registered = true;
                 promise.setSuccess();
 
-
-                //触发“ChannelRegistered”事件
+                //触发“ChannelRegistered”事件链
                 pipeline.fireChannelRegistered();
+                //判断是否已经bind成功，如果成功则触发“fireChannelActive”事件链
                 if (isActive()) {
-                    //触发“fireChannelActive”事件
                     pipeline.fireChannelActive();
                 }
             } catch (Throwable t) {
@@ -471,6 +471,8 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
             }
         }
 
+
+        //用ServerBootstrap来使用NioServerSocket的bind方法，最终调用的是这里的bind方法
         @Override
         public final void bind(final SocketAddress localAddress, final ChannelPromise promise) {
             if (!ensureOpen(promise)) {
@@ -492,6 +494,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
 
             boolean wasActive = isActive();
             try {
+                //调用子类的doBind()方法，如果使用的NIO那么这里调用的就是NioServerSocketChannel实现的doBind()方法
                 doBind(localAddress);
             } catch (Throwable t) {
                 promise.setFailure(t);
@@ -500,6 +503,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
             }
             promise.setSuccess();
 
+            //判断端口是否已经成功，成功则触发fireChannelActive事件
             if (!wasActive && isActive()) {
                 invokeLater(new Runnable() {
                     @Override
@@ -621,6 +625,8 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
             }
         }
 
+
+
         @Override
         public void beginRead() {
             if (!isActive()) {
@@ -628,6 +634,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
             }
 
             try {
+                //这里调用子类的doBeginRead()方法，如果使用的NIO，那么这里看AbstractNioChannel对该方法的实现
                 doBeginRead();
             } catch (final Exception e) {
                 invokeLater(new Runnable() {

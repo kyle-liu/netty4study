@@ -327,6 +327,7 @@ public final class NioEventLoop extends SingleThreadEventLoop {
                 if (hasTasks()) {
                     selectNow();
                 } else {
+                    //
                     select();
 
                     // 'wakenUp.compareAndSet(false, true)' is always evaluated
@@ -363,10 +364,13 @@ public final class NioEventLoop extends SingleThreadEventLoop {
                 }
 
                 cancelledKeys = 0;
-
+                //得到执行线程执行IO开始时间，单位毫秒
                 final long ioStartTime = System.nanoTime();
                 needsToSelectAgain = false;
 
+                /**
+                 * IO任务
+                 */
                 //selectedKeys不为null，说明在构造函数中调用openSelector()方法进行初始化selector时，使用的是进行优化后的SelectKeySet
                 //默认情况下都是使用的是优化后的SelectKeySet，所这里可以先着重看processSelectedKeysOptimized()方法的实现
                 if (selectedKeys != null) {
@@ -374,11 +378,23 @@ public final class NioEventLoop extends SingleThreadEventLoop {
                 } else {
                     processSelectedKeysPlain(selector.selectedKeys());
                 }
+                //用系统当前时间-执行IO的开始时间 = 当前线程执行IO的总耗时
                 final long ioTime = System.nanoTime() - ioStartTime;
 
-                final int ioRatio = this.ioRatio;
-                runAllTasks(ioTime * (100 - ioRatio) / ioRatio);
 
+                /**
+                 * TODO：think about of:这里任务比例的计算方式
+                 * 表示线程在执行任务过程中，IO任务所占的比例，以百分比为单位的，即：
+                 *
+                 */
+                final int ioRatio = this.ioRatio;
+
+                /**
+                 * 非IO任务
+                 */
+                //运行任务队列中的其他任务
+                runAllTasks(ioTime * (100 - ioRatio) / ioRatio);
+                //判断当前evnetloop状态是否正在shuttingDown
                 if (isShuttingDown()) {
                     closeAll();
                     if (confirmShutdown()) {
@@ -632,6 +648,7 @@ public final class NioEventLoop extends SingleThreadEventLoop {
                     break;
                 }
 
+                //此处select超时后，不会抛出异常
                 int selectedKeys = selector.select(timeoutMillis);
                 selectCnt++;
 
