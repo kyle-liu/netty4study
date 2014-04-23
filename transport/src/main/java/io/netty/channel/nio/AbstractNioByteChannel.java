@@ -44,6 +44,8 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
      * @param ch                the underlying {@link SelectableChannel} on which it operates
      */
     protected AbstractNioByteChannel(Channel parent, SelectableChannel ch) {
+
+        //todo: core &  think about: 为什么NioSocektChannel是设置OP_READ
         super(parent, ch, SelectionKey.OP_READ);
     }
 
@@ -161,6 +163,8 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
         int writeSpinCount = -1;
 
         for (;;) {
+
+            //检查当前outboundBuffer是否有数据
             Object msg = in.current();
             if (msg == null) {
                 // Wrote all messages.
@@ -168,8 +172,11 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
                 break;
             }
 
+             //检查消息实例msg的类型是否一个字节缓冲ByteBuf类型
             if (msg instanceof ByteBuf) {
                 ByteBuf buf = (ByteBuf) msg;
+
+                //检查msg的可读字节数
                 int readableBytes = buf.readableBytes();
                 if (readableBytes == 0) {
                     in.remove();
@@ -194,6 +201,7 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
                     writeSpinCount = config().getWriteSpinCount();
                 }
                 for (int i = writeSpinCount - 1; i >= 0; i --) {
+                    //调用真正写数据的doWriteBytes方法
                     int localFlushedAmount = doWriteBytes(buf);
                     if (localFlushedAmount == 0) {
                         setOpWrite = true;
@@ -201,6 +209,7 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
                     }
 
                     flushedAmount += localFlushedAmount;
+
                     if (!buf.isReadable()) {
                         done = true;
                         break;
@@ -290,6 +299,10 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
      */
     protected abstract int doWriteBytes(ByteBuf buf) throws Exception;
 
+
+
+
+    //todo:core 真正给channel的Selectionkey设置OP_WRITE的方法
     protected final void setOpWrite() {
         final SelectionKey key = selectionKey();
         final int interestOps = key.interestOps();

@@ -68,15 +68,16 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
     private volatile EventLoop eventLoop;
     private volatile boolean registered;
 
-    /** Cache for the string representation of this channel */
+    /**
+     * Cache for the string representation of this channel
+     */
     private boolean strValActive;
     private String strVal;
 
     /**
      * Creates a new instance.
      *
-     * @param parent
-     *        the parent of this channel. {@code null} if there's no parent.
+     * @param parent the parent of this channel. {@code null} if there's no parent.
      */
     protected AbstractChannel(Channel parent) {
         this.parent = parent;
@@ -353,7 +354,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                 srcAddr = remoteAddr;
                 dstAddr = localAddr;
             }
-            strVal = String.format("[id: 0x%08x, %s %s %s]", (int) hashCode, srcAddr, active? "=>" : ":>", dstAddr);
+            strVal = String.format("[id: 0x%08x, %s %s %s]", (int) hashCode, srcAddr, active ? "=>" : ":>", dstAddr);
         } else if (localAddr != null) {
             strVal = String.format("[id: 0x%08x, %s]", (int) hashCode, localAddr);
         } else {
@@ -377,10 +378,12 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
     }
 
 
-
     /**
      * {@link Unsafe} implementation which sub-classes must extend and use.
      */
+       /**
+        * Unsafe是真正channel完成bind,connect,read,write等任务的接口
+        */
     protected abstract class AbstractUnsafe implements Unsafe {
 
         private ChannelOutboundBuffer outboundBuffer = ChannelOutboundBuffer.newInstance(AbstractChannel.this);
@@ -481,15 +484,15 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
 
             // See: https://github.com/netty/netty/issues/576
             if (!PlatformDependent.isWindows() && !PlatformDependent.isRoot() &&
-                Boolean.TRUE.equals(config().getOption(ChannelOption.SO_BROADCAST)) &&
-                localAddress instanceof InetSocketAddress &&
-                !((InetSocketAddress) localAddress).getAddress().isAnyLocalAddress()) {
+                    Boolean.TRUE.equals(config().getOption(ChannelOption.SO_BROADCAST)) &&
+                    localAddress instanceof InetSocketAddress &&
+                    !((InetSocketAddress) localAddress).getAddress().isAnyLocalAddress()) {
                 // Warn a user about the fact that a non-root user can't receive a
                 // broadcast packet on *nix if the socket is bound on non-wildcard address.
                 logger.warn(
                         "A non-root user can't receive a broadcast packet if the socket " +
-                        "is not bound to a wildcard address; binding to a non-wildcard " +
-                        "address (" + localAddress + ") anyway as requested.");
+                                "is not bound to a wildcard address; binding to a non-wildcard " +
+                                "address (" + localAddress + ") anyway as requested.");
             }
 
             boolean wasActive = isActive();
@@ -626,7 +629,6 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
         }
 
 
-
         @Override
         public void beginRead() {
             if (!isActive()) {
@@ -647,8 +649,11 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
             }
         }
 
+
+        //写消息的方法，由用户调用
         @Override
         public void write(Object msg, ChannelPromise promise) {
+            //channel状态检查
             if (!isActive()) {
                 // Mark the write request as failure if the channel is inactive.
                 if (isOpen()) {
@@ -659,10 +664,13 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                 // release message now to prevent resource-leak
                 ReferenceCountUtil.release(msg);
             } else {
+                //这里只是把用户的消息和promise添加到outboundBuffer,并没有真正的写，真正的写是flush的时候开始
                 outboundBuffer.addMessage(msg, promise);
             }
         }
 
+
+        //flush事件，把放入outboundBuffer的消息真正通过channel写到client
         @Override
         public void flush() {
             ChannelOutboundBuffer outboundBuffer = this.outboundBuffer;
@@ -674,12 +682,15 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
             flush0();
         }
 
+
         protected void flush0() {
             if (inFlush0) {
                 // Avoid re-entrance
                 return;
             }
 
+
+            //检查outboundBuffer是否有数据
             final ChannelOutboundBuffer outboundBuffer = this.outboundBuffer;
             if (outboundBuffer == null || outboundBuffer.isEmpty()) {
                 return;
@@ -687,6 +698,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
 
             inFlush0 = true;
 
+            //检查待写数据的channel是否还是active的
             // Mark all pending write requests as failure if the channel is inactive.
             if (!isActive()) {
                 try {
@@ -701,7 +713,9 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                 return;
             }
 
+
             try {
+                //开始写数据
                 doWrite(outboundBuffer);
             } catch (Throwable t) {
                 outboundBuffer.failFlushed(t);
@@ -771,7 +785,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
 
     /**
      * Is called after the {@link Channel} is registered with its {@link EventLoop} as part of the register process.
-     *
+     * <p/>
      * Sub-classes may override this method
      */
     protected void doRegister() throws Exception {
@@ -795,7 +809,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
 
     /**
      * Deregister the {@link Channel} from its {@link EventLoop}.
-     *
+     * <p/>
      * Sub-classes may override this method
      */
     protected void doDeregister() throws Exception {

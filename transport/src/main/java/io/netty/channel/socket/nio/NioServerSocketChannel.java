@@ -63,7 +63,10 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel
      * Create a new instance
      */
     public NioServerSocketChannel() {
+
         //调用父类的构造函数
+        //todo:core 这里构造函数的第三个参数，是设置的NioServerSocketChannel注册的selector感兴趣的selectionkey值即属性readInterestOp
+        //因为这里是ServerSocket，所以设置的是OP_ACCEPT,在调用unsafe的beginRead设置selectionKey.interestOps(interestOps |  readInterestOp）;
         super(null, newSocket(), SelectionKey.OP_ACCEPT);
         config = new DefaultServerSocketChannelConfig(this, javaChannel().socket());
     }

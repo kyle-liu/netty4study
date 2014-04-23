@@ -20,6 +20,19 @@ import java.util.Set;
  * Date: 14-1-3
  * Time: PM1:11
  * 该demo主要用于我学习java 原生提供的nio api.通过一个基本的小demo来理解nio api的基本功能，从而加深netty对nio api的抽象和封装
+ * netty的IO模型：
+ * eventloop:
+ * 是对selector,selectionKeys,thread的封装.每一个eventloop封装着一个selector以及这个selector收集到的selectionKeys,
+ * 然后提供一个接口方法register方法把selector注册到channel(这个channel可能是一个ServerSocketChannel也可能是一个SocketChannel中。
+ * 最后把提供了一个thread和一个taskQueue,把IO以及其他任务放到这个taskQueue,让thread执行
+ *
+ * eventloop_group:
+ * 是对一组eventloop的封装，内部维护着一个名字为child[]的EventExecutor(eventloop的父类)类型的数组
+ *
+ * channel: 有一个parent eventloop group,
+ *
+ * Bootstrap:
+ *
  */
 public class PlainNioEchoServer {
 

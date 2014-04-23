@@ -45,7 +45,7 @@ public abstract class AbstractNioChannel extends AbstractChannel {
 
     //真正底层通信的java nio的Channel,它可能是一个ServerSocketChannel也可能是一个SocketChannel
     private final SelectableChannel ch;
-    protected final int readInterestOp;
+    protected final int readInterestOp;  //当前channel注册到selector时感兴趣的key值，在这里NioServerSocketChannel设置的是OP_ACCEPT
     private volatile SelectionKey selectionKey;
     private volatile boolean inputShutdown;
 
@@ -147,6 +147,13 @@ public abstract class AbstractNioChannel extends AbstractChannel {
         void forceFlush();
     }
 
+
+    /**
+     * Unsafe是真正channel完成bind,connect,read,write等任务的接口，这里有一个默认实现的抽象类AbstractNioUnsafe，其
+     * 与NIO的实现有两个子类：
+     * NioByteUnsafe: 主要负责NioSocketChannel的相关操作
+     * NioMessageUnsafe: 主要负责NioServerSocketChannel相关的操作
+     */
     protected abstract class AbstractNioUnsafe extends AbstractUnsafe implements NioUnsafe {
 
         @Override
