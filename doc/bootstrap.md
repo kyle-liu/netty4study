@@ -1,6 +1,5 @@
 # 源代码阅读笔记之Bootstrap
 ----
-
 ## 简介
 
 netty4提供的AbstractBootstrap是一个帮助类，它提供了一种Builder模式来配置AbstractBootstrap，主要用于在使用netty4作为Client
