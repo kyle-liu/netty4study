@@ -4,4 +4,4 @@ netty4提供的AbstractBootstrap是一个帮助类，它提供了一种Builder�
 和Server时，帮助用于启动netty
 
 先看AbstractBootstrap相关的类图:
-![img](./doc/image/bootstrap.jpeg)
+![img](./image/bootstrap.jpeg)
