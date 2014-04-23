@@ -1,6 +1,6 @@
 # JDK NIO DEMO解析
 
-```Java    
+```Javascript    
 public  class Test{
 
     public void main(){
