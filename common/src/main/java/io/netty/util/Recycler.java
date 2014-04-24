@@ -33,6 +33,7 @@ public abstract class Recycler<T> {
         }
     };
 
+    //从threadLocal中弹出存放的元素
     public final T get() {
         Stack<T> stack = threadLocal.get();
         T o = stack.pop();
@@ -42,16 +43,28 @@ public abstract class Recycler<T> {
         return o;
     }
 
+
+    /**
+     * 判断传入的handle即stack对象，是否是可以循环利用的，判断条件为：
+     * 1.检查handle所属的parent是否是当前对象
+     * 2.检查handle所属的线程是否是当前runtime线程
+     * 如果1，2条件都满足，则把元素push到handle中去
+     */
     public final boolean recycle(T o, Handle handle) {
         @SuppressWarnings("unchecked")
+
         Stack<T> stack = (Stack<T>) handle;
+
+        //检查handle里面的parent对象是否是当前对象
         if (stack.parent != this) {
             return false;
         }
 
+        //检查当前runtime线程是否是初始化handle的线程
         if (Thread.currentThread() != stack.thread) {
             return false;
         }
+
 
         stack.push(o);
         return true;
@@ -67,7 +80,9 @@ public abstract class Recycler<T> {
         private static final int INITIAL_CAPACITY = 256;
 
         final Recycler<T> parent;
-        final Thread thread;
+
+        final Thread thread;  //初始化Stack对象的线程对象
+
         private T[] elements;  //存放元素的数组
         private int size;  //elements数组中已被赋值的元素中最后一个元素的索引+1即下一个待填元素的索引
         //该Map主要用来检查Stack中是否有重复元素
