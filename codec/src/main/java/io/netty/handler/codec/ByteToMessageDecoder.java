@@ -125,6 +125,7 @@ public abstract class ByteToMessageDecoder extends ChannelInboundHandlerAdapter 
         if (msg instanceof ByteBuf) {
             RecyclableArrayList out = RecyclableArrayList.newInstance();
             try {
+                //收集读取的字节
                 ByteBuf data = (ByteBuf) msg;
                 first = cumulation == null;
                 if (first) {
@@ -136,6 +137,8 @@ public abstract class ByteToMessageDecoder extends ChannelInboundHandlerAdapter 
                     cumulation.writeBytes(data);
                     data.release();
                 }
+
+                //开始解码
                 callDecode(ctx, cumulation, out);
             } catch (DecoderException e) {
                 throw e;

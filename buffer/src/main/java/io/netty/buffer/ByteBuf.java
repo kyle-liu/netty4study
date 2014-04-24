@@ -29,6 +29,7 @@ import java.nio.charset.UnsupportedCharsetException;
 
 /**
  * A random and sequential accessible sequence of zero or more bytes (octets).
+ * 一个随机并且可以连续访问的0个字节或者八位字节
  * This interface provides an abstract view for one or more primitive byte
  * arrays ({@code byte[]}) and {@linkplain ByteBuffer NIO buffers}.
  *
